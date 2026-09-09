@@ -6,12 +6,14 @@ interface NotificationsDrawerProps {
   notifications: NotificationItem[]
   onClose: () => void
   onMarkAllRead: () => void
+  onMarkRead: (id: string) => void
 }
 
 export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
   notifications,
   onClose,
   onMarkAllRead,
+  onMarkRead,
 }) => {
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -41,11 +43,13 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
           {notifications.map((n) => (
             <div
               key={n.id}
+              onClick={() => !n.read && onMarkRead(n.id)}
               style={{
                 padding: '14px',
                 borderRadius: '10px',
                 background: n.read ? '#fff' : 'var(--lime-soft)',
                 border: '1px solid ' + (n.read ? 'var(--line)' : '#C4EAA2'),
+                cursor: n.read ? 'default' : 'pointer',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', marginBottom: '4px' }}>

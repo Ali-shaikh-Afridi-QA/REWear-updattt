@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { ValuationQuestionnaire, Product, User } from '../types'
+import { apiService, CatalogItem } from '../services/apiService'
 
 interface SellCashifyFlowProps {
   user: User
@@ -41,6 +42,14 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
   onCancel,
 }) => {
   const [step, setStep] = useState<number>(1)
+  const [isPublished, setIsPublished] = useState(false)
+  const [error, setError] = useState('')
+  const [categories, setCategories] = useState(CATEGORIES)
+  const [brands, setBrands] = useState(BRANDS)
+  const [categoryItems, setCategoryItems] = useState<CatalogItem[]>([])
+  const [brandItems, setBrandItems] = useState<CatalogItem[]>([])
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [isPublishing, setIsPublishing] = useState(false)
   const [formData, setFormData] = useState<ValuationQuestionnaire>({
     mode: 'sell',
     category: 'Jackets',
@@ -52,6 +61,26 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
     photos: [SAMPLE_PHOTOS[0], SAMPLE_PHOTOS[1]],
     estimatedPoints: 750,
   })
+
+  useEffect(() => {
+    let isMounted = true
+
+    Promise.all([apiService.getCategories({ limit: 200 }), apiService.getBrands({ limit: 200 })])
+      .then(([categoryItems, brandItems]) => {
+        if (!isMounted) return
+        setCategoryItems(categoryItems)
+        setBrandItems(brandItems)
+        if (categoryItems.length > 0) setCategories(categoryItems.map((item) => item.name))
+        if (brandItems.length > 0) setBrands(brandItems.map((item) => item.name))
+      })
+      .catch(() => {
+        // Keep local questionnaire options available if catalog loading fails.
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const calculatePoints = () => {
     let base = 500
@@ -70,14 +99,24 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
   }
 
   const handleNext = () => {
+    if (step === 8 && formData.photos.length < 2) {
+      setError('Please upload at least 2 photos to continue.')
+      return
+    }
+
     if (step === 9) {
       const pts = calculatePoints()
       setFormData((prev) => ({ ...prev, estimatedPoints: pts }))
     }
+
+    setError('')
     setStep((s) => Math.min(11, s + 1))
   }
 
-  const handlePrev = () => setStep((s) => Math.max(1, s - 1))
+  const handlePrev = () => {
+    setError('')
+    setStep((s) => Math.max(1, s - 1))
+  }
 
   const toggleDefect = (item: string) => {
     if (item === 'No defects whatsoever') {
@@ -94,9 +133,68 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
     })
   }
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
+    setError('')
+    setIsPublishing(true)
+    let finalPoints = formData.estimatedPoints
+    let backendListingId: string | undefined
+
+    const categoryId = categoryItems.find((item) => item.name === formData.category)?.id
+    const brandId = brandItems.find((item) => item.name === formData.brand)?.id || null
+
+    if (categoryId) {
+      try {
+        const condition = formData.overallCondition === 'Like New' || formData.overallCondition === 'Brand New with Tags' ? 'like_new' : formData.overallCondition === 'Good' || formData.overallCondition === 'Excellent' ? 'good' : 'fair'
+        const ageMatch = formData.age.match(/\d+/)
+        const createdListing = await apiService.createListing({
+          title: `${formData.brand} ${formData.category} (${formData.overallCondition})`,
+          description: `Verified listing through Cashify valuation flow. Age: ${formData.age}. Condition: ${formData.overallCondition}.`,
+          category_id: categoryId,
+          brand_id: brandId,
+          size: formData.size === 'UK 6' || formData.size === 'UK 7' || formData.size === 'UK 8' ? 'other' : formData.size,
+          condition,
+          age: ageMatch ? Number(ageMatch[0]) : null,
+          defects: formData.defects.filter((defect) => defect !== 'No defects whatsoever').join(', ') || null,
+          location: user.location,
+        })
+        backendListingId = createdListing.id
+
+        const categoryMap: Record<string, string> = {
+          Jackets: 'outerwear', 'T-Shirts': 'tops', Shirts: 'tops', Dresses: 'dresses', Jeans: 'bottoms', Shoes: 'shoes', Hoodies: 'tops', Ethnic: 'other',
+        }
+        const brandMap: Record<string, string> = {
+          "Levi's": 'premium', Nike: 'premium', Adidas: 'premium', Zara: 'standard', 'H&M': 'standard', Uniqlo: 'standard', Mango: 'standard', Puma: 'standard',
+        }
+        const valuation = await apiService.valueListing(createdListing.id, {
+          category: categoryMap[formData.category] || 'other',
+          brand: brandMap[formData.brand] || 'none',
+          age: ageMatch ? Number(ageMatch[0]) : 0,
+          condition: condition === 'like_new' ? 'like_new' : condition === 'good' ? 'good' : 'fair',
+          stains: formData.defects.some((defect) => defect.toLowerCase().includes('stain')),
+          tears: formData.defects.some((defect) => defect.toLowerCase().includes('tear')),
+          fading: formData.defects.some((defect) => defect.toLowerCase().includes('fading')),
+          zip_condition: !formData.defects.some((defect) => defect.toLowerCase().includes('zipper')),
+          buttons: !formData.defects.some((defect) => defect.toLowerCase().includes('button')),
+          stitching: !formData.defects.some((defect) => defect.toLowerCase().includes('stitch')),
+          other_defects: formData.defects.length > 0,
+        })
+        finalPoints = valuation.points
+
+        await Promise.all(photoFiles.map((file) => {
+          const upload = new FormData()
+          upload.append('photo', file)
+          return apiService.uploadPhoto(createdListing.id, upload)
+        }))
+        await apiService.publishListing(createdListing.id)
+      } catch (publishError) {
+        setError(publishError instanceof Error ? `${publishError.message} Showing a local preview instead.` : 'Backend listing setup failed. Showing a local preview instead.')
+        backendListingId = undefined
+      }
+    }
+
     const newProduct: Product = {
       id: Date.now(),
+      backendListingId,
       title: `${formData.brand} ${formData.category} (${formData.overallCondition})`,
       brand: formData.brand,
       category: formData.category,
@@ -104,7 +202,7 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
       gender: 'Unisex',
       condition: formData.overallCondition as any,
       defects: formData.defects.filter((d) => d !== 'No defects whatsoever'),
-      points: formData.estimatedPoints,
+      points: finalPoints,
       distance: '0.4 km',
       distanceKm: 0.4,
       seller: {
@@ -123,7 +221,41 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
       status: 'active',
     }
 
+    setFormData((prev) => ({ ...prev, estimatedPoints: finalPoints }))
+    setIsPublishing(false)
+    setIsPublished(true)
     onCompleteListing(newProduct)
+  }
+
+  if (isPublished) {
+    return (
+      <div style={{ maxWidth: '720px', margin: '30px auto', padding: '0 16px 80px' }}>
+        <div className="card-clean animate-fade-in" style={{ padding: '36px', textAlign: 'center' }}>
+          <div className="badge-lime" style={{ marginBottom: '12px' }}>LISTING PUBLISHED</div>
+          <h2 style={{ fontSize: '28px', fontWeight: 800 }}>Your item is live on ReWear</h2>
+          <p style={{ color: 'var(--muted)', fontSize: '14px', margin: '10px auto 18px', maxWidth: '500px' }}>
+            <strong>{formData.brand} {formData.category}</strong> is now visible to nearby buyers and is priced at <strong>{formData.estimatedPoints} ReWear Points</strong>.
+          </p>
+
+          <div style={{ background: 'var(--lime-soft)', borderRadius: '14px', padding: '18px', marginBottom: '24px', textAlign: 'left' }}>
+            <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 800, marginBottom: '10px' }}>Listing Summary</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', fontSize: '13px' }}>
+              <div><span style={{ color: 'var(--muted)' }}>Category:</span> <strong>{formData.category}</strong></div>
+              <div><span style={{ color: 'var(--muted)' }}>Brand:</span> <strong>{formData.brand}</strong></div>
+              <div><span style={{ color: 'var(--muted)' }}>Size:</span> <strong>{formData.size}</strong></div>
+              <div><span style={{ color: 'var(--muted)' }}>Condition:</span> <strong>{formData.overallCondition}</strong></div>
+              <div><span style={{ color: 'var(--muted)' }}>Value:</span> <strong>{formData.estimatedPoints} pts</strong></div>
+              <div><span style={{ color: 'var(--muted)' }}>Pickup:</span> <strong>Meetup + Delivery</strong></div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn-secondary" onClick={onCancel}>Back to Discover</button>
+            <button className="btn-primary" onClick={() => onCancel()}>View My Profile</button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -211,7 +343,7 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setFormData({ ...formData, category: cat })}
@@ -242,7 +374,7 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
-            {BRANDS.map((b) => (
+            {brands.map((b) => (
               <button
                 key={b}
                 onClick={() => setFormData({ ...formData, brand: b })}
@@ -400,38 +532,76 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
             Include overall front, back, brand tag, and any disclosed defects.
           </p>
 
+          {error && (
+            <div style={{ background: '#FDF0F0', border: '1px solid #F5C6C6', color: 'var(--rose)', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', fontWeight: 700, marginBottom: '16px' }}>
+              {error}
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '14px', marginBottom: '20px' }}>
             {formData.photos.map((p, idx) => (
               <div key={idx} style={{ height: '120px', borderRadius: '10px', overflow: 'hidden', position: 'relative' }}>
                 <img src={p} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, photos: formData.photos.filter((_, i) => i !== idx) })}
+                  style={{
+                    position: 'absolute',
+                    top: '6px',
+                    right: '6px',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.7)',
+                    color: '#fff',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                >
+                  ×
+                </button>
                 <span style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
                   {idx === 0 ? 'Cover Photo' : `Photo ${idx + 1}`}
                 </span>
               </div>
             ))}
 
-            <div
-              style={{
-                height: '120px',
-                borderRadius: '10px',
-                border: '2px dashed var(--muted-light)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                background: 'var(--bg-cream)',
-                color: 'var(--muted)',
-                fontSize: '13px',
-                fontWeight: 700,
-              }}
-              onClick={() => {
-                if (formData.photos.length < SAMPLE_PHOTOS.length) {
-                  setFormData({ ...formData, photos: [...formData.photos, SAMPLE_PHOTOS[formData.photos.length]] })
-                }
-              }}
-            >
-              + Add Photo
-            </div>
+            {formData.photos.length < 5 && (
+              <label
+                style={{
+                  height: '120px',
+                  borderRadius: '10px',
+                  border: '2px dashed var(--muted-light)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  background: 'var(--bg-cream)',
+                  color: 'var(--muted)',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                }}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={(event) => {
+                    const selectedFiles = Array.from(event.target.files || []).slice(0, 5 - formData.photos.length)
+                    if (selectedFiles.length === 0) return
+                    setPhotoFiles((previous) => [...previous, ...selectedFiles])
+                    setFormData((previous) => ({
+                      ...previous,
+                      photos: [...previous.photos, ...selectedFiles.map((file) => URL.createObjectURL(file))],
+                    }))
+                  }}
+                />
+                + Add Photo
+              </label>
+            )}
           </div>
         </div>
       )}
@@ -491,8 +661,8 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
             Your item will be immediately discoverable to buyers in <strong>{user.location}</strong> for <strong>{formData.estimatedPoints} ReWear Points</strong>.
           </p>
 
-          <button className="btn-primary" style={{ padding: '14px 32px', fontSize: '15px' }} onClick={handlePublish}>
-            Publish Listing Now
+          <button className="btn-primary" disabled={isPublishing} style={{ padding: '14px 32px', fontSize: '15px', opacity: isPublishing ? 0.7 : 1 }} onClick={handlePublish}>
+            {isPublishing ? 'Publishing...' : 'Publish Listing Now'}
           </button>
         </div>
       )}

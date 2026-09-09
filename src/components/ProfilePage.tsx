@@ -10,7 +10,11 @@ interface ProfilePageProps {
   onToggleFavorite: (id: number) => void
   onSelectProduct: (p: Product) => void
   onSignOut?: () => void
-  onUpdateProfile?: (updatedUser: User) => void
+  onUpdateProfile?: (updatedUser: User) => Promise<void> | void
+  onDeactivateAccount?: () => Promise<void> | void
+  onPublishListing?: (product: Product) => Promise<void> | void
+  onCancelListing?: (product: Product) => Promise<void> | void
+  onDeleteListing?: (product: Product) => Promise<void> | void
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
@@ -21,6 +25,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onSelectProduct,
   onSignOut,
   onUpdateProfile,
+  onDeactivateAccount,
+  onPublishListing,
+  onCancelListing,
+  onDeleteListing,
 }) => {
   const [activeTab, setActiveTab] = useState<'listings' | 'favorites' | 'badges'>('listings')
   const [isEditing, setIsEditing] = useState(false)
@@ -28,11 +36,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [email, setEmail] = useState(user.email || '')
   const [location, setLocation] = useState(user.location || '')
   const [avatar, setAvatar] = useState(user.avatar || '')
+  const [isSaving, setIsSaving] = useState(false)
+  const [profileError, setProfileError] = useState('')
 
   const savedProducts = products.filter((p) => favorites.includes(p.id))
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
+    setProfileError('')
     const updated: User = {
       ...user,
       name,
@@ -41,9 +52,30 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       avatar: avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
     }
     if (onUpdateProfile) {
-      onUpdateProfile(updated)
+      setIsSaving(true)
+      try {
+        await onUpdateProfile(updated)
+      } catch (error) {
+        setProfileError(error instanceof Error ? error.message : 'Unable to save profile changes.')
+        setIsSaving(false)
+        return
+      } finally {
+        setIsSaving(false)
+      }
     }
     setIsEditing(false)
+  }
+
+  const handleDeactivateAccount = async () => {
+    if (!onDeactivateAccount || !window.confirm('Deactivate your ReWear account? You can contact support to restore it later.')) return
+    setIsSaving(true)
+    setProfileError('')
+    try {
+      await onDeactivateAccount()
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Unable to deactivate your account.')
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -174,13 +206,27 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           {products
             .filter((p) => p.seller.name === user.name)
             .map((prod) => (
-              <ProductCard
-                key={prod.id}
-                product={prod}
-                onClick={() => onSelectProduct(prod)}
-                isFavorite={favorites.includes(prod.id)}
-                onToggleFavorite={onToggleFavorite}
-              />
+              <div key={prod.id}>
+                <ProductCard
+                  product={prod}
+                  onClick={() => onSelectProduct(prod)}
+                  isFavorite={favorites.includes(prod.id)}
+                  onToggleFavorite={onToggleFavorite}
+                />
+                {prod.backendListingId && (onPublishListing || onCancelListing || onDeleteListing) && (
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    {prod.status !== 'active' && onPublishListing && (
+                      <button className="btn-secondary" style={{ padding: '6px 8px', fontSize: '11px' }} onClick={() => onPublishListing(prod)}>Publish</button>
+                    )}
+                    {prod.status === 'active' && onCancelListing && (
+                      <button className="btn-secondary" style={{ padding: '6px 8px', fontSize: '11px' }} onClick={() => onCancelListing(prod)}>Cancel</button>
+                    )}
+                    {onDeleteListing && (
+                      <button className="btn-secondary" style={{ padding: '6px 8px', fontSize: '11px', color: 'var(--rose)' }} onClick={() => onDeleteListing(prod)}>Delete</button>
+                    )}
+                  </div>
+                )}
+              </div>
             ))}
         </div>
       )}
@@ -274,6 +320,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
 
             <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {profileError && <div style={{ color: 'var(--rose)', background: '#FDF0F0', border: '1px solid #F5C6C6', borderRadius: '8px', padding: '10px', fontSize: '12px', fontWeight: 700 }}>{profileError}</div>}
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                   Full Name
@@ -338,13 +385,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </button>
                 <button
                   type="submit"
+                  disabled={isSaving}
                   className="btn-primary"
-                  style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', opacity: isSaving ? 0.7 : 1 }}
                 >
                   <Check size={16} />
-                  <span>Save Changes</span>
+                  <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
                 </button>
               </div>
+
+              {onDeactivateAccount && (
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={handleDeactivateAccount}
+                  style={{ color: '#d93025', fontSize: '12px', fontWeight: 700, textAlign: 'center', padding: '8px' }}
+                >
+                  Deactivate Account
+                </button>
+              )}
             </form>
           </div>
         </div>

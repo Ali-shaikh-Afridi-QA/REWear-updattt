@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { Leaf, Menu, X } from 'lucide-react'
 import { View, User } from '../types'
-import { PointsIcon } from './PointsIcon'
 
 interface NavbarProps {
   currentView: View
@@ -10,6 +9,7 @@ interface NavbarProps {
   unreadNotifsCount: number
   onOpenNotifs: () => void
   onOpenChat: () => void
+  onOpenAdmin?: () => void
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -19,6 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   unreadNotifsCount,
   onOpenNotifs,
   onOpenChat,
+  onOpenAdmin,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -46,6 +47,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             Discover
           </button>
+
+          {onOpenAdmin && <button className="nav-btn" onClick={onOpenAdmin}>Admin</button>}
           <button
             className={`nav-btn ${currentView === 'sell' ? 'active' : ''}`}
             onClick={() => handleNavClick('sell')}
@@ -70,6 +73,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             Wallet
           </button>
+          <button
+            className={`nav-btn ${currentView === 'favorites' ? 'active' : ''}`}
+            onClick={() => handleNavClick('favorites')}
+          >
+            Favorites
+          </button>
         </nav>
 
         {/* Right Action Items & Profile */}
@@ -81,11 +90,26 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="View Wallet"
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px' }}
           >
-            <PointsIcon size={16} color="#203D43" />
-            <span style={{ fontWeight: 800 }}>{user.pointsBalance.toLocaleString()} Pts</span>
+            <Leaf size={16} color="#fff" />
+            <span style={{ fontWeight: 800, color: '#fff' }}>{user.pointsBalance.toLocaleString()} Leaf</span>
           </button>
 
           {/* Notifications Button */}
+          <button
+            onClick={onOpenChat}
+            style={{
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: '20px',
+              padding: '6px 12px',
+              color: '#fff',
+              fontSize: '12px',
+              fontWeight: 700,
+            }}
+          >
+            Messages
+          </button>
+
           <button
             onClick={onOpenNotifs}
             style={{
@@ -220,12 +244,30 @@ export const Navbar: React.FC<NavbarProps> = ({
             Points Wallet
           </button>
           <button
+            className={`nav-btn ${currentView === 'favorites' ? 'active' : ''}`}
+            onClick={() => handleNavClick('favorites')}
+            style={{ width: '100%', justifyContent: 'flex-start' }}
+          >
+            Favorites
+          </button>
+          <button
+            className={`nav-btn ${currentView === 'messages' ? 'active' : ''}`}
+            onClick={() => {
+              setMobileMenuOpen(false)
+              onOpenChat()
+            }}
+            style={{ width: '100%', justifyContent: 'flex-start' }}
+          >
+            Messages
+          </button>
+          <button
             className={`nav-btn ${currentView === 'profile' ? 'active' : ''}`}
             onClick={() => handleNavClick('profile')}
             style={{ width: '100%', justifyContent: 'flex-start' }}
           >
             Profile & Reputation
           </button>
+          {onOpenAdmin && <button className="nav-btn" onClick={() => { setMobileMenuOpen(false); onOpenAdmin() }} style={{ width: '100%', justifyContent: 'flex-start' }}>Admin Console</button>}
         </div>
       )}
     </header>

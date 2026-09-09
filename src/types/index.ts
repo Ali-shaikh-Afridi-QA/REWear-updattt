@@ -9,13 +9,16 @@ export type View =
   | 'profile'
   | 'favorites'
   | 'login'
+  | 'messages'
+  | 'admin'
 
-export type AuthMode = 'login' | 'register'
+export type AuthMode = 'login' | 'register' | 'forgot' | 'reset' | 'profile'
 
 export interface User {
   id: string
   name: string
   email: string
+  role?: string
   phone?: string
   avatar?: string
   location: string
@@ -38,6 +41,7 @@ export interface DefectItem {
 
 export interface Product {
   id: number
+  backendListingId?: string
   title: string
   brand: string
   category: string
@@ -86,6 +90,7 @@ export type OrderStage =
 
 export interface Order {
   id: string
+  backendOrderId?: string
   product: Product
   type: 'meetup' | 'delivery'
   points: number
@@ -115,6 +120,9 @@ export interface Order {
     status: string
   }
   disputeReason?: string
+  holdId?: string
+  meetupId?: string
+  deliveryId?: string
   createdAt: string
 }
 
