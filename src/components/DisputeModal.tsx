@@ -5,7 +5,7 @@ import { Order, Product } from '../types'
 interface DisputeModalProps {
   itemOrOrder: Order | Product
   onClose: () => void
-  onSubmitDispute: (reason: string, details: string) => void
+  onSubmitDispute: (reason: string, details: string) => void | Promise<void>
 }
 
 export const DisputeModal: React.FC<DisputeModalProps> = ({
@@ -15,10 +15,18 @@ export const DisputeModal: React.FC<DisputeModalProps> = ({
 }) => {
   const [problemType, setProblemType] = useState('Defect not disclosed in description')
   const [details, setDetails] = useState('')
+  const [evidenceName, setEvidenceName] = useState('')
+  const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
 
-  const handleSubmit = () => {
-    onSubmitDispute(problemType, details)
+  const handleSubmit = async () => {
+    if (!details.trim()) {
+      setError('Please describe the problem before submitting.')
+      return
+    }
+
+    setError('')
+    await onSubmitDispute(problemType, details)
     setSubmitted(true)
   }
 
@@ -74,9 +82,17 @@ export const DisputeModal: React.FC<DisputeModalProps> = ({
                 />
               </div>
 
-              <div style={{ border: '2px dashed var(--line)', borderRadius: '8px', padding: '14px', textAlign: 'center', background: 'var(--bg-cream)', color: 'var(--muted)', fontSize: '12px', fontWeight: 700 }}>
-                + Attach Evidence Photo
-              </div>
+              {error && <div style={{ color: 'var(--rose)', fontSize: '12px', fontWeight: 700 }}>{error}</div>}
+
+              <label style={{ border: '2px dashed var(--line)', borderRadius: '8px', padding: '14px', textAlign: 'center', background: 'var(--bg-cream)', color: 'var(--muted)', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                {evidenceName ? `Evidence attached: ${evidenceName}` : '+ Attach Evidence Photo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setEvidenceName(e.target.files?.[0]?.name || '')}
+                  style={{ display: 'none' }}
+                />
+              </label>
             </div>
 
             <button className="btn-primary" style={{ width: '100%', padding: '12px' }} onClick={handleSubmit}>

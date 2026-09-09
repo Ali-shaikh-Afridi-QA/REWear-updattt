@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Product, User, FilterOptions } from '../types'
 import { ProductCard } from './ProductCard'
 import { PointsIcon } from './PointsIcon'
+import { apiService, CatalogItem, ApiDiscoveryListing } from '../services/apiService'
 
 interface DiscoverPageProps {
   products: Product[]
@@ -18,6 +19,44 @@ const BRANDS = ['All', "Levi's", 'Zara', 'Nike', 'H&M', 'Adidas', 'Uniqlo', 'Man
 const SIZES = ['All', 'XS', 'S', 'M', 'L', 'XL', 'UK 6', 'UK 7']
 const CONDITIONS = ['All', 'Brand New with Tags', 'Like New', 'Excellent', 'Good']
 
+const DISCOVERY_IMAGE = 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=900&q=80'
+
+function mapDiscoveryListing(item: ApiDiscoveryListing, categoryItems: CatalogItem[], brandItems: CatalogItem[]): Product {
+  const category = categoryItems.find((catalogItem) => catalogItem.id === item.category_id)?.name || 'Clothing'
+  const brand = brandItems.find((catalogItem) => catalogItem.id === item.brand_id)?.name || 'Local Brand'
+  const condition = item.condition === 'like_new' ? 'Like New' : item.condition === 'good' ? 'Good' : 'Well Worn'
+  const numericId = Number.parseInt(item.id.replace(/[^0-9]/g, '').slice(0, 8) || '0', 10)
+
+  return {
+    id: numericId,
+    backendListingId: item.id,
+    title: item.title,
+    brand,
+    category,
+    size: item.size,
+    gender: 'Unisex',
+    condition,
+    defects: [],
+    points: item.points_required,
+    distance: item.distance_km == null ? 'Distance unavailable' : `${item.distance_km.toFixed(1)} km`,
+    distanceKm: item.distance_km ?? 999,
+    seller: {
+      id: item.seller.id,
+      name: item.seller.username,
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      rating: 0,
+      location: item.location || 'Location unavailable',
+      exchangesCount: 0,
+      joinedDate: 'Recently',
+    },
+    images: [DISCOVERY_IMAGE],
+    description: item.description || 'A community-listed pre-loved garment.',
+    pickupType: 'both',
+    createdAt: item.created_at,
+    status: item.status === 'reserved' ? 'reserved' : 'active',
+  }
+}
+
 export const DiscoverPage: React.FC<DiscoverPageProps> = ({
   products,
   user,
@@ -28,6 +67,11 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
   onOpenDonate,
 }) => {
   const [filterOpen, setFilterOpen] = useState(false)
+  const [categories, setCategories] = useState(CATEGORIES)
+  const [brands, setBrands] = useState(BRANDS)
+  const [categoryItems, setCategoryItems] = useState<CatalogItem[]>([])
+  const [brandItems, setBrandItems] = useState<CatalogItem[]>([])
+  const [remoteProducts, setRemoteProducts] = useState<Product[] | null>(null)
   const [filters, setFilters] = useState<FilterOptions>({
     query: '',
     category: 'All',
@@ -52,8 +96,73 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
     })
   }
 
+  useEffect(() => {
+    let isMounted = true
+
+    Promise.all([apiService.getCategories({ limit: 200 }), apiService.getBrands({ limit: 200 })])
+      .then(([categoryItems, brandItems]) => {
+        if (!isMounted) return
+        setCategoryItems(categoryItems)
+        setBrandItems(brandItems)
+        if (categoryItems.length > 0) setCategories(['All', ...categoryItems.map((item) => item.name)])
+        if (brandItems.length > 0) setBrands(['All', ...brandItems.map((item) => item.name)])
+      })
+      .catch(() => {
+        // Keep local filter options available if the catalog API is unavailable.
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+    const categoryId = categoryItems.find((item) => item.name === filters.category)?.id
+    const brandId = brandItems.find((item) => item.name === filters.brand)?.id
+    const conditionMap: Record<string, string> = {
+      'Like New': 'like_new',
+      Good: 'good',
+      Excellent: 'good',
+      'Brand New with Tags': 'like_new',
+    }
+    const sortMap: Record<FilterOptions['sortBy'], string> = {
+      nearest: 'distance',
+      newest: 'newest',
+      lowest_points: 'price_asc',
+      best_rated: 'newest',
+    }
+    const params: Record<string, string | number> = {
+      limit: 100,
+      max_points: filters.maxPoints,
+      radius_km: filters.maxDistanceKm,
+      sort: sortMap[filters.sortBy],
+    }
+
+    if (filters.query.trim()) params.search = filters.query.trim()
+    if (categoryId) params.category_id = categoryId
+    if (brandId) params.brand_id = brandId
+    if (filters.size !== 'All') params.size = filters.size
+    if (filters.condition !== 'All') params.condition = conditionMap[filters.condition] || 'good'
+
+    apiService.searchListings(params)
+      .then((response) => {
+        if (!isMounted) return
+        setRemoteProducts(response.items.map((item) => mapDiscoveryListing(item, categoryItems, brandItems)))
+      })
+      .catch(() => {
+        if (isMounted) setRemoteProducts(null)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [filters, categoryItems, brandItems])
+
+  const activeProducts = remoteProducts ?? products
+
   const filteredProducts = useMemo(() => {
-    return products
+    return activeProducts
       .filter((p) => {
         const matchesQuery =
           p.title.toLowerCase().includes(filters.query.toLowerCase()) ||
@@ -82,7 +191,7 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
         if (filters.sortBy === 'best_rated') return b.seller.rating - a.seller.rating
         return b.id - a.id // newest
       })
-  }, [products, filters])
+  }, [activeProducts, filters])
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 16px 80px' }}>
@@ -189,7 +298,7 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
 
       {/* Categories Horizontal Scroll */}
       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '12px', marginBottom: '20px' }}>
-        {CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setFilters({ ...filters, category: cat })}
@@ -235,7 +344,7 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
                 onChange={(e) => setFilters({ ...filters, brand: e.target.value })}
                 style={{ width: '100%', height: '36px', borderRadius: '8px', border: '1px solid var(--line)', padding: '0 8px', fontSize: '13px' }}
               >
-                {BRANDS.map((b) => (
+                {brands.map((b) => (
                   <option key={b} value={b}>{b}</option>
                 ))}
               </select>
