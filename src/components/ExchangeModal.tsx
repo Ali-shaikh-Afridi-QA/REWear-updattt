@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { X } from 'lucide-react'
 import { Product, User } from '../types'
+import { PointsIcon } from './PointsIcon'
 
 interface ExchangeModalProps {
   product: Product
@@ -84,20 +85,20 @@ export const ExchangeModal: React.FC<ExchangeModalProps> = ({
 
         {/* Points Balance Calculation */}
         <div style={{ borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)', padding: '14px 0', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--muted)' }}>
             <span>Available Wallet Balance</span>
-            <strong>{user.pointsBalance.toLocaleString()} Pts</strong>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><PointsIcon size={14} color="#203D43" />{user.pointsBalance.toLocaleString()} Pts</strong>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ink)', fontWeight: 700 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--ink)', fontWeight: 700 }}>
             <span>Item Escrow Points Hold</span>
-            <span style={{ color: 'var(--rose)' }}>- {product.points} Pts</span>
+            <span style={{ color: 'var(--rose)', display: 'flex', alignItems: 'center', gap: '4px' }}>- <PointsIcon size={14} color="#E53E3E" />{product.points} Pts</span>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '15px', paddingTop: '6px', borderTop: '1px dashed var(--line)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 800, fontSize: '15px', paddingTop: '6px', borderTop: '1px dashed var(--line)' }}>
             <span>Remaining Available Points</span>
-            <span style={{ color: hasEnoughPoints ? 'var(--ink)' : 'var(--rose)' }}>
-              {(user.pointsBalance - product.points).toLocaleString()} Pts
+            <span style={{ color: hasEnoughPoints ? 'var(--ink)' : 'var(--rose)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <PointsIcon size={14} color={hasEnoughPoints ? '#203D43' : '#E53E3E'} />{(user.pointsBalance - product.points).toLocaleString()} Pts
             </span>
           </div>
         </div>

@@ -343,6 +343,8 @@ export const MOCK_WALLET_TRANSACTIONS: WalletTransaction[] = [
     type: 'locked',
     status: 'Pending Escrow',
     orderId: 'ORD-98421',
+    details: 'Points locked safely in ReWear Escrow until item handoff is verified by buyer.',
+    counterpartyName: 'Riya Shah',
   },
   {
     id: 'TX-899',
@@ -352,6 +354,8 @@ export const MOCK_WALLET_TRANSACTIONS: WalletTransaction[] = [
     type: 'earned',
     status: 'Completed',
     orderId: 'ORD-44910',
+    details: 'Points released to your wallet following successful nearby meetup completion.',
+    counterpartyName: 'Sneha Bapat',
   },
   {
     id: 'TX-850',
@@ -360,6 +364,8 @@ export const MOCK_WALLET_TRANSACTIONS: WalletTransaction[] = [
     points: 400,
     type: 'earned',
     status: 'Completed',
+    details: 'Reward bonus granted for verified NGO wardrobe donation drop-off.',
+    counterpartyName: 'Goonj NGO',
   },
   {
     id: 'TX-812',
@@ -368,6 +374,8 @@ export const MOCK_WALLET_TRANSACTIONS: WalletTransaction[] = [
     points: 900,
     type: 'spent',
     status: 'Completed',
+    details: 'Spent points for high performance running shoes delivered via Dunzo Eco Express.',
+    counterpartyName: 'Aditya Rao',
   },
   {
     id: 'TX-750',
@@ -376,6 +384,7 @@ export const MOCK_WALLET_TRANSACTIONS: WalletTransaction[] = [
     points: 500,
     type: 'earned',
     status: 'Completed',
+    details: 'Bonus points awarded for completing profile verification & Pune location pin.',
   },
 ]
 
@@ -387,6 +396,7 @@ export const MOCK_NOTIFICATIONS: NotificationItem[] = [
     time: '10 mins ago',
     read: false,
     type: 'order',
+    orderId: 'ORD-98421',
   },
   {
     id: 'notif_2',
@@ -395,13 +405,84 @@ export const MOCK_NOTIFICATIONS: NotificationItem[] = [
     time: '2 hours ago',
     read: false,
     type: 'points',
+    orderId: 'ORD-98421',
   },
   {
     id: 'notif_3',
-    title: 'Listing Approved',
-    message: 'Your valuation for Cotton Co-ord set (750 Points) was approved and published!',
+    title: 'Listing Approved & Published',
+    message: 'Your valuation for Cotton Co-ord set (750 Points) was approved and published live!',
     time: 'Yesterday',
     read: true,
     type: 'system',
   },
+  {
+    id: 'notif_4',
+    title: 'Delivery Courier Dispatched',
+    message: 'Dunzo Eco Courier #RW-DEL-884920 picked up Zara Midi Dress from Pooja Kulkarni.',
+    time: 'Yesterday',
+    read: true,
+    type: 'order',
+    orderId: 'ORD-77103',
+  },
+  {
+    id: 'notif_5',
+    title: 'Rating Requested',
+    message: 'Please rate your recent swap experience with Sneha Bapat for Order #ORD-44910.',
+    time: '3 days ago',
+    read: true,
+    type: 'system',
+    orderId: 'ORD-44910',
+  },
+  {
+    id: 'notif_6',
+    title: 'Saved Favorite Update',
+    message: 'Nike Pegasus 39 Running Shoes is now available for nearby meetup in Viman Nagar!',
+    time: '4 days ago',
+    read: true,
+    type: 'favorite',
+  },
 ]
+
+export const MOCK_CHAT_THREADS: import('./types').ChatThread[] = [
+  {
+    id: 'chat_1',
+    orderId: 'ORD-98421',
+    productTitle: "Levi's Classic Trucker Denim Jacket",
+    productImage: 'https://images.unsplash.com/photo-1576871337622-98d48d1cf531?auto=format&fit=crop&w=400&q=80',
+    counterparty: {
+      id: 'usr_201',
+      name: 'Riya Shah',
+      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80',
+      rating: 4.9,
+    },
+    lastMessage: 'Awesome, see you near the main entrance table.',
+    lastMessageTime: '10:20 AM',
+    unreadCount: 1,
+    messages: [
+      { id: 'msg_1', senderId: 'usr_201', senderName: 'Riya Shah', text: 'Hi Ananya! Is 5:30 PM tomorrow good for meeting at FC Road Starbucks?', time: '10:15 AM', isMine: false },
+      { id: 'msg_2', senderId: 'usr_curr_101', senderName: 'You', text: 'Yes, 5:30 PM works great for me! I will carry the denim jacket in clean paper packaging.', time: '10:18 AM', isMine: true },
+      { id: 'msg_3', senderId: 'usr_201', senderName: 'Riya Shah', text: 'Awesome, see you near the main entrance table.', time: '10:20 AM', isMine: false },
+    ],
+  },
+  {
+    id: 'chat_2',
+    orderId: 'ORD-77103',
+    productTitle: 'Zara Floral Summer Midi Dress',
+    productImage: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=400&q=80',
+    counterparty: {
+      id: 'usr_202',
+      name: 'Pooja Kulkarni',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
+      rating: 4.8,
+    },
+    lastMessage: 'I have handed over the package to Dunzo delivery partner!',
+    lastMessageTime: 'Yesterday',
+    unreadCount: 0,
+    messages: [
+      { id: 'msg_201', senderId: 'usr_202', senderName: 'Pooja Kulkarni', text: 'Hi! I packed the dress with extra care.', time: 'Yesterday 3:00 PM', isMine: false },
+      { id: 'msg_202', senderId: 'usr_curr_101', senderName: 'You', text: 'Thanks Pooja! Tracking link shows courier assigned.', time: 'Yesterday 3:15 PM', isMine: true },
+      { id: 'msg_203', senderId: 'usr_202', senderName: 'Pooja Kulkarni', text: 'I have handed over the package to Dunzo delivery partner!', time: 'Yesterday 4:00 PM', isMine: false },
+    ],
+  },
+]
+

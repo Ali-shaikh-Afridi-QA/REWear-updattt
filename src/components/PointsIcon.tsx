@@ -1,5 +1,5 @@
 import React from 'react'
-import { Coins } from 'lucide-react'
+import { Leaf } from 'lucide-react'
 
 interface PointsIconProps {
   size?: number
@@ -15,7 +15,7 @@ export const PointsIcon: React.FC<PointsIconProps> = ({
   style,
 }) => {
   return (
-    <Coins
+    <Leaf
       size={size}
       color={color}
       className={className}

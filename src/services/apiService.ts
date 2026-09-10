@@ -86,6 +86,14 @@ async function request<T = any>(endpoint: string, options: RequestInit = {}): Pr
       const errData = await res.json().catch(() => ({}))
       throw new Error(errData.detail || errData.message || `Request failed with status ${res.status}`)
     }
+
+    // Several successful delete endpoints intentionally return 204 with no body.
+    // Calling res.json() for those responses turns a successful request into a
+    // client-side parsing error.
+    if (res.status === 204 || res.headers.get('content-length') === '0') {
+      return undefined as T
+    }
+
     return await res.json()
   } catch (error) {
     console.warn(`[apiService] ${options.method || 'GET'} ${url} failed:`, error)
@@ -102,6 +110,7 @@ export const apiService = {
   // 🔐 Authentication & Users
   register: (data: { email: string; username: string; password: string }) => request<ApiUser>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   login: (data: { email: string; password: string }) => request<TokenResponse>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  googleAuth: (data: { token: string }) => request<TokenResponse>('/auth/google', { method: 'POST', body: JSON.stringify(data) }),
   refreshToken: (refresh_token: string) => request<TokenResponse>('/auth/refresh', { method: 'POST', body: JSON.stringify({ refresh_token }) }),
   logout: () => request('/auth/logout'),
   getProfile: () => request<ApiUser>('/users/me'),
@@ -140,7 +149,7 @@ export const apiService = {
     }
   },
   updateProfile: (data: any) => request('/users/me', { method: 'PATCH', body: JSON.stringify(data) }),
-  updateAccountStatus: (userId: string, active: boolean) => request(`/users/${userId}/status`, { method: 'PATCH', body: JSON.stringify({ active }) }),
+  updateAccountStatus: (userId: string, is_active: boolean) => request(`/users/${userId}/status`, { method: 'PATCH', body: JSON.stringify({ is_active }) }),
 
   // 📚 Catalog
   getCategories: (params?: any) => request(`/catalog/categories${params ? '?' + new URLSearchParams(params).toString() : ''}`),
@@ -165,13 +174,20 @@ export const apiService = {
   deleteListing: (id: string) => request(`/listings/${id}`, { method: 'DELETE' }),
   publishListing: (id: string) => request(`/listings/${id}/publish`, { method: 'POST' }),
   cancelListing: (id: string) => request(`/listings/${id}/cancel`, { method: 'POST' }),
-  uploadPhoto: (id: string, formData: FormData) => {
+  uploadPhoto: async (id: string, formData: FormData) => {
     const accessToken = getAccessToken()
-    return fetch(`${API_BASE_URL}/listings/${id}/photos`, {
+    const res = await fetch(`${API_BASE_URL}/listings/${id}/photos`, {
       method: 'POST',
       body: formData,
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    }).then((r) => r.json())
+    })
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.detail || errData.message || `Request failed with status ${res.status}`)
+    }
+
+    return res.json()
   },
   getPhotos: (id: string) => request(`/listings/${id}/photos`),
   deletePhoto: (id: string, photoId: string) => request(`/listings/${id}/photos/${photoId}`, { method: 'DELETE' }),

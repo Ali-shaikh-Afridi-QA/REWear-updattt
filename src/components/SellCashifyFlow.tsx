@@ -476,6 +476,9 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
             <button className="btn-secondary" onClick={() => setStep(6)}>
               Edit Answers
             </button>
+            <button className="btn-secondary" onClick={() => setStep(8)}>
+              Retake Photos
+            </button>
             <button className="btn-primary" onClick={handleNext}>
               Confirm & Continue to List
             </button>

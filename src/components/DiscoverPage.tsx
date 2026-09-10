@@ -275,9 +275,9 @@ export const DiscoverPage: React.FC<DiscoverPageProps> = ({
 
             {/* Max Points Slider */}
             <div style={{ marginBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>
                 <span>Max ReWear Points</span>
-                <span style={{ color: 'var(--ink)' }}>{filters.maxPoints} pts</span>
+                <span style={{ color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '4px' }}><PointsIcon size={12} color="#203D43" />{filters.maxPoints} pts</span>
               </div>
               <input
                 type="range"

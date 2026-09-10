@@ -180,10 +180,10 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             <div style={{ marginTop: 'auto', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <button
                 className="btn-primary"
-                style={{ flex: 1, height: '46px' }}
+                style={{ flex: 1, height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 onClick={() => onInitiateExchange(product)}
               >
-                Get / Exchange Item ({product.points} Pts)
+                Get / Exchange Item (<PointsIcon size={14} color="#fff" />{product.points} Pts)
               </button>
 
               <button

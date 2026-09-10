@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Leaf } from 'lucide-react'
 import { AuthMode, User } from '../../types'
 import { GoogleIcon } from './SocialIcons'
@@ -19,6 +19,77 @@ export function AuthPage({ initialMode = 'login', onSuccess, onBack }: AuthProps
   const [loading, setLoading] = useState(false)
 
   const isRegister = mode === 'register'
+
+  // Load and initialize Google SDK
+  useEffect(() => {
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+    if (!googleClientId) return
+
+    // Load Google Identity Services script
+    const scriptId = 'google-gsi-script'
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script')
+      script.id = scriptId
+      script.src = 'https://accounts.google.com/gsi/client'
+      script.async = true
+      script.defer = true
+      script.onload = () => {
+        // @ts-ignore
+        if (window.google?.accounts?.id) {
+          // @ts-ignore
+          window.google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: handleGoogleSuccess,
+            auto_select: false,
+          })
+          renderGoogleButton()
+        }
+      }
+      document.head.appendChild(script)
+    } else {
+      // Script already loaded, render immediately
+      // @ts-ignore
+      if (window.google?.accounts?.id) {
+        renderGoogleButton()
+      }
+    }
+  }, [mode]) // Re-render when mode changes (login/register)
+
+  const renderGoogleButton = () => {
+    const buttonContainer = document.getElementById('google-signin-button')
+    if (!buttonContainer) return
+
+    // Clear previous button if exists
+    buttonContainer.innerHTML = ''
+
+    // @ts-ignore
+    if (window.google?.accounts?.id) {
+      // @ts-ignore
+      window.google.accounts.id.renderButton(buttonContainer, {
+        theme: 'outline',
+        size: 'large',
+        width: '100%',
+        text: isRegister ? 'signup_with' : 'signin_with',
+        locale: 'en',
+      })
+    }
+  }
+
+  const handleGoogleSuccess = async (response: any) => {
+    setError('')
+    setLoading(true)
+    try {
+      const tokens = await apiService.googleAuth({ token: response.credential })
+      saveAuthTokens(tokens)
+      const apiUser = await apiService.getProfile()
+      onSuccess?.(toAppUser(apiUser))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Google sign-in failed. Please try again.'
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -243,38 +314,45 @@ export function AuthPage({ initialMode = 'login', onSuccess, onBack }: AuthProps
           </button>
         </form>
 
-        {/* Google authentication is intentionally unavailable until an OAuth provider is configured. */}
+        {/* OR Divider */}
         <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0 16px', gap: '12px' }}>
           <div style={{ flex: 1, height: '1px', background: 'var(--line)' }}></div>
           <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>OR</span>
           <div style={{ flex: 1, height: '1px', background: 'var(--line)' }}></div>
         </div>
 
-        {/* Google Social Button */}
-        <button
-          type="button"
-          disabled
-          className="btn-secondary"
-          style={{
-            width: '100%',
-            padding: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            fontSize: '13px',
-            fontWeight: 700,
-            background: '#ffffff',
-            border: '1px solid var(--line)',
-            color: 'var(--ink)',
-            borderRadius: '8px',
-            opacity: 0.55,
-            cursor: 'not-allowed',
-          }}
-        >
-          <GoogleIcon />
-          <span>Google sign-in coming soon</span>
-        </button>
+        {/* Google Sign-In Button */}
+        {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
+          <div
+            id="google-signin-button"
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              minHeight: '44px',
+              marginTop: '16px',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              background: '#FEF3E2',
+              border: '1px solid #F5B800',
+              padding: '14px 16px',
+              borderRadius: '8px',
+              textAlign: 'center',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--ink)',
+              marginTop: '16px',
+              lineHeight: '1.4',
+            }}
+          >
+            💡 <strong>Google Sign-In:</strong> Add VITE_GOOGLE_CLIENT_ID to your .env file to enable <br />
+            <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#F5B800', textDecoration: 'underline', fontWeight: 700 }}>
+              Get Client ID →
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )

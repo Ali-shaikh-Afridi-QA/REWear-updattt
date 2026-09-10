@@ -13,9 +13,13 @@ import { ExchangeModal } from './components/ExchangeModal'
 import { OrdersPage } from './components/OrdersPage'
 import { WalletPage } from './components/WalletPage'
 import { ProfilePage } from './components/ProfilePage'
+import { FavoritesPage } from './components/FavoritesPage'
+import { MessagesPage } from './components/MessagesPage'
+import { HelpPage } from './components/HelpPage'
 import { DisputeModal } from './components/DisputeModal'
 import { NotificationsDrawer } from './components/NotificationsDrawer'
 import { ChatModal } from './components/ChatModal'
+
 import { AuthPage } from './components/auth/AuthPage'
 import { CheckCircle2 } from 'lucide-react'
 import { apiService, clearAuthTokens, toAppUser } from './services/apiService'
@@ -147,6 +151,8 @@ export const App: React.FC = () => {
       type: 'locked',
       status: 'Pending Escrow',
       orderId: newOrder.id,
+      details: 'Points locked in escrow during checkout.',
+      counterpartyName: product.seller.name,
     }
     setTransactions((prev) => [newTx, ...prev])
 
@@ -157,6 +163,7 @@ export const App: React.FC = () => {
       time: 'Just now',
       read: false,
       type: 'points',
+      orderId: newOrder.id,
     }
     setNotifications((prev) => [newNotif, ...prev])
 
@@ -225,7 +232,7 @@ export const App: React.FC = () => {
         user={user}
         unreadNotifsCount={unreadNotifsCount}
         onOpenNotifs={() => setShowNotifications(true)}
-        onOpenChat={() => setShowChat(true)}
+        onOpenChat={() => setView('messages')}
       />
 
       <main style={{ flex: 1 }}>
@@ -265,10 +272,10 @@ export const App: React.FC = () => {
             onCompleteDonation={() => {
               setUser((prev) => ({
                 ...prev,
-                pointsBalance: prev.pointsBalance + 400,
+                pointsBalance: prev.pointsBalance + 405,
                 donationsCompleted: prev.donationsCompleted + 1,
               }))
-              showToast('Received +400 Eco Karma Points for donation! 🌱')
+              showToast('Received +405 Eco Karma Points for donation! 🌱')
               setView('wallet')
             }}
             onCancel={() => setView('browse')}
@@ -289,6 +296,27 @@ export const App: React.FC = () => {
             transactions={transactions}
             onOpenSell={() => setView('sell')}
             onOpenDonate={() => setView('donate')}
+          />
+        )}
+
+        {view === 'favorites' && (
+          <FavoritesPage
+            products={products}
+            favorites={favorites}
+            onToggleFavorite={handleToggleFavorite}
+            onSelectProduct={(p) => setSelectedProduct(p)}
+            onOpenBrowse={() => setView('browse')}
+          />
+        )}
+
+        {view === 'messages' && (
+          <MessagesPage user={user} onShowToast={showToast} />
+        )}
+
+        {view === 'help' && (
+          <HelpPage
+            onOpenDispute={() => setItemForDispute(products[0])}
+            onShowToast={showToast}
           />
         )}
 
@@ -356,7 +384,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Phase 2 Chat Modal */}
+      {/* Phase 2 Quick Chat Modal */}
       {showChat && (
         <ChatModal user={user} onClose={() => setShowChat(false)} />
       )}
@@ -391,3 +419,4 @@ export const App: React.FC = () => {
     </div>
   )
 }
+

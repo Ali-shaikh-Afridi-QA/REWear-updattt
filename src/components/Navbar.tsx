@@ -38,7 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span>ReWear</span>
         </button>
 
-        {/* Desktop Navigation Links (No button icons) */}
+        {/* Desktop Navigation Links */}
         <nav className="nav-links desktop-only">
           <button
             className={`nav-btn ${currentView === 'home' || currentView === 'browse' ? 'active' : ''}`}
@@ -50,7 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`nav-btn ${currentView === 'sell' ? 'active' : ''}`}
             onClick={() => handleNavClick('sell')}
           >
-            Sell / Valuation
+            Sell
           </button>
           <button
             className={`nav-btn ${currentView === 'donate' ? 'active' : ''}`}
@@ -70,15 +70,27 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             Wallet
           </button>
+          <button
+            className={`nav-btn ${currentView === 'favorites' ? 'active' : ''}`}
+            onClick={() => handleNavClick('favorites')}
+          >
+            Favorites
+          </button>
+          <button
+            className={`nav-btn ${currentView === 'help' ? 'active' : ''}`}
+            onClick={() => handleNavClick('help')}
+          >
+            Help
+          </button>
         </nav>
 
         {/* Right Action Items & Profile */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Points Pill with ReWear Points Icon */}
+          {/* Points Pill */}
           <button
             className="points-pill"
             onClick={() => handleNavClick('wallet')}
-            title="View Wallet"
+            title="View Points Wallet"
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px' }}
           >
             <PointsIcon size={16} color="#203D43" />
@@ -99,7 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               fontWeight: 700,
             }}
           >
-            Alerts
+            Notifications
             {unreadNotifsCount > 0 && (
               <span
                 style={{
@@ -142,11 +154,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
             />
             <span className="desktop-only" style={{ fontSize: '12px', fontWeight: 700 }}>
-              {user.name.split(' ')[0]}
+              Profile
             </span>
           </button>
 
-          {/* Mobile Hamburger Menu Toggle */}
+          {/* Mobile Hamburger Toggle */}
           <button
             className="mobile-only"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -218,6 +230,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             style={{ width: '100%', justifyContent: 'flex-start' }}
           >
             Points Wallet
+          </button>
+          <button
+            className={`nav-btn ${currentView === 'favorites' ? 'active' : ''}`}
+            onClick={() => handleNavClick('favorites')}
+            style={{ width: '100%', justifyContent: 'flex-start' }}
+          >
+            Saved Favorites
+          </button>
+          <button
+            className={`nav-btn ${currentView === 'help' ? 'active' : ''}`}
+            onClick={() => handleNavClick('help')}
+            style={{ width: '100%', justifyContent: 'flex-start' }}
+          >
+            Help & Dispute Center
           </button>
           <button
             className={`nav-btn ${currentView === 'profile' ? 'active' : ''}`}

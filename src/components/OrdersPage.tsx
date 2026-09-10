@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Order, OrderStage } from '../types'
 import { MeetupAndDeliveryUI } from './MeetupAndDeliveryUI'
+import { PointsIcon } from './PointsIcon'
 
 interface OrdersPageProps {
   orders: Order[]
@@ -95,8 +96,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 </div>
 
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--ink)' }}>
-                    {ord.points} Pts
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                    <PointsIcon size={18} color="#203D43" />{ord.points} Pts
                   </div>
                   <div style={{ fontSize: '11px', color: '#3B6B2E', fontWeight: 700, marginTop: '2px' }}>
                     Escrow Held

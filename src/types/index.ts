@@ -8,6 +8,8 @@ export type View =
   | 'orders'
   | 'profile'
   | 'favorites'
+  | 'messages'
+  | 'help'
   | 'login'
 
 export type AuthMode = 'login' | 'register'
@@ -61,7 +63,8 @@ export interface Product {
   description: string
   pickupType: 'both' | 'meetup' | 'delivery'
   createdAt: string
-  status: 'active' | 'reserved' | 'completed'
+  status: 'active' | 'reserved' | 'completed' | 'expired'
+  statusNotice?: string
 }
 
 export interface ValuationQuestionnaire {
@@ -90,6 +93,7 @@ export interface Order {
   type: 'meetup' | 'delivery'
   points: number
   counterparty: {
+    id?: string
     name: string
     avatar: string
     role: 'buyer' | 'seller'
@@ -115,6 +119,13 @@ export interface Order {
     status: string
   }
   disputeReason?: string
+  disputeDetails?: string
+  disputeStatus?: 'under_review' | 'resolved' | 'rejected'
+  ratingSubmitted?: {
+    stars: number
+    comment: string
+    date: string
+  }
   createdAt: string
 }
 
@@ -126,6 +137,8 @@ export interface WalletTransaction {
   type: 'earned' | 'spent' | 'locked' | 'refund'
   status: 'Completed' | 'Pending Escrow' | 'Released'
   orderId?: string
+  details?: string
+  counterpartyName?: string
 }
 
 export interface NotificationItem {
@@ -134,7 +147,36 @@ export interface NotificationItem {
   message: string
   time: string
   read: boolean
-  type: 'order' | 'points' | 'system' | 'chat'
+  type: 'order' | 'points' | 'system' | 'chat' | 'favorite'
+  orderId?: string
+}
+
+export interface ChatMessage {
+  id: string
+  senderId: string
+  senderName: string
+  text: string
+  time: string
+  image?: string
+  isMine: boolean
+}
+
+export interface ChatThread {
+  id: string
+  orderId: string
+  productTitle: string
+  productImage: string
+  counterparty: {
+    id: string
+    name: string
+    avatar: string
+    rating: number
+    isBlocked?: boolean
+  }
+  lastMessage: string
+  lastMessageTime: string
+  unreadCount: number
+  messages: ChatMessage[]
 }
 
 export interface FilterOptions {
@@ -147,3 +189,20 @@ export interface FilterOptions {
   maxDistanceKm: number
   sortBy: 'nearest' | 'newest' | 'lowest_points' | 'best_rated'
 }
+
+export type UXStateMode =
+  | 'none'
+  | 'loading'
+  | 'no_nearby'
+  | 'no_search'
+  | 'insufficient_points'
+  | 'item_reserved'
+  | 'listing_expired'
+  | 'upload_failed'
+  | 'network_error'
+  | 'location_denied'
+  | 'delivery_unavailable'
+  | 'delivery_fee_pending'
+  | 'dispute_in_progress'
+  | 'success_confirmation'
+
