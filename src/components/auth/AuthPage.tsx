@@ -322,43 +322,36 @@ export function AuthPage({ initialMode = 'login', onSuccess, onBack }: AuthProps
         </div>
 
         {/* Google Sign-In Button */}
-        <div
-          id="google-signin-button"
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            marginTop: '8px',
-          }}
-        ></div>
-
-        {/* Back Button */}
-        {onBack && (
-          <button
-            onClick={onBack}
+        {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
+          <div
+            id="google-signin-button"
             style={{
-              width: '100%',
-              padding: '12px',
-              marginTop: '12px',
-              background: 'transparent',
-              border: '1px solid var(--line)',
+              display: 'flex',
+              justifyContent: 'center',
+              minHeight: '44px',
+              marginTop: '16px',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              background: '#FEF3E2',
+              border: '1px solid #F5B800',
+              padding: '14px 16px',
               borderRadius: '8px',
-              fontSize: '13px',
+              textAlign: 'center',
+              fontSize: '12px',
               fontWeight: 600,
-              color: 'var(--muted)',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-cream)'
-              e.currentTarget.style.color = 'var(--ink)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.color = 'var(--muted)'
+              color: 'var(--ink)',
+              marginTop: '16px',
+              lineHeight: '1.4',
             }}
           >
-            ← Back
-          </button>
+            💡 <strong>Google Sign-In:</strong> Add VITE_GOOGLE_CLIENT_ID to your .env file to enable <br />
+            <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#F5B800', textDecoration: 'underline', fontWeight: 700 }}>
+              Get Client ID →
+            </a>
+          </div>
         )}
       </div>
     </div>
