@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Send, MapPin, Image, ShieldCheck } from 'lucide-react'
+import { X, Send, Image, Ban, Flag } from 'lucide-react'
 import { User } from '../types'
 
 interface ChatModalProps {
@@ -14,6 +14,9 @@ export const ChatModal: React.FC<ChatModalProps> = ({ user, onClose }) => {
     { id: 3, sender: 'Riya Shah', text: 'Awesome, see you near the main entrance entrance table.', time: '10:20 AM' },
   ])
   const [input, setInput] = useState('')
+  const [attachmentName, setAttachmentName] = useState('')
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [notice, setNotice] = useState('')
 
   const handleSend = () => {
     if (!input.trim()) return
@@ -46,9 +49,23 @@ export const ChatModal: React.FC<ChatModalProps> = ({ user, onClose }) => {
           </button>
         </div>
 
+        <div style={{ display: 'flex', gap: '8px', padding: '10px 16px', borderBottom: '1px solid var(--line)', background: '#fff' }}>
+          <button className="btn-secondary" style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => setNotice('User reported to Trust & Safety.') }>
+            <Flag size={13} /> Report
+          </button>
+          <button className="btn-secondary" style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => { setIsBlocked(true); setNotice('User blocked for this conversation.') }}>
+            <Ban size={13} /> Block
+          </button>
+          {notice && <span style={{ alignSelf: 'center', color: 'var(--muted)', fontSize: '11px', fontWeight: 700 }}>{notice}</span>}
+        </div>
+
         {/* Message Log */}
         <div style={{ padding: '20px', height: '340px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--bg-cream)' }}>
-          {messages.map((msg) => (
+          {isBlocked ? (
+            <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>
+              This conversation is blocked.
+            </div>
+          ) : messages.map((msg) => (
             <div
               key={msg.id}
               style={{
@@ -71,15 +88,21 @@ export const ChatModal: React.FC<ChatModalProps> = ({ user, onClose }) => {
 
         {/* Input Footer */}
         <div style={{ padding: '16px', background: '#fff', borderTop: '1px solid var(--line)', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <label title="Attach photo" style={{ color: 'var(--muted)', cursor: isBlocked ? 'default' : 'pointer' }}>
+            <Image size={18} />
+            <input type="file" accept="image/*" disabled={isBlocked} onChange={(e) => setAttachmentName(e.target.files?.[0]?.name || '')} style={{ display: 'none' }} />
+          </label>
           <input
             type="text"
             placeholder="Type your message..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            disabled={isBlocked}
+            title={attachmentName || undefined}
             style={{ flex: 1, height: '42px', borderRadius: '20px', border: '1px solid var(--line)', padding: '0 16px', fontSize: '13px', outline: 0 }}
           />
-          <button className="btn-primary" style={{ height: '42px', width: '42px', padding: 0, borderRadius: '50%' }} onClick={handleSend}>
+          <button className="btn-primary" disabled={isBlocked} style={{ height: '42px', width: '42px', padding: 0, borderRadius: '50%' }} onClick={handleSend}>
             <Send size={18} />
           </button>
         </div>

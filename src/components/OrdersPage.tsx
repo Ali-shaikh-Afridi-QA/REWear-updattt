@@ -5,8 +5,13 @@ import { PointsIcon } from './PointsIcon'
 
 interface OrdersPageProps {
   orders: Order[]
-  onUpdateStage: (orderId: string, stageIndex: number) => void
+  onUpdateStage: (orderId: string, stageIndex: number) => void | Promise<void>
+  onCancelOrder: (orderId: string) => void | Promise<void>
   onOpenDispute: (order: Order) => void
+  onConfirmMeetup?: (order: Order, location: string) => void | Promise<void>
+  onHandoverMeetup?: (order: Order) => void | Promise<void>
+  onConfirmDelivery?: (order: Order) => void | Promise<void>
+  onSubmitReview?: (order: Order, rating: number, comment: string) => void | Promise<void>
 }
 
 const STAGES: OrderStage[] = [
@@ -21,13 +26,19 @@ const STAGES: OrderStage[] = [
 export const OrdersPage: React.FC<OrdersPageProps> = ({
   orders,
   onUpdateStage,
+  onCancelOrder,
   onOpenDispute,
+  onConfirmMeetup,
+  onHandoverMeetup,
+  onConfirmDelivery,
+  onSubmitReview,
 }) => {
-  const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'disputed'>('active')
+  const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'cancelled' | 'disputed'>('active')
 
   const filteredOrders = orders.filter((o) => {
     if (activeTab === 'active') return o.status === 'active'
     if (activeTab === 'completed') return o.status === 'completed'
+    if (activeTab === 'cancelled') return o.status === 'cancelled'
     return o.status === 'disputed'
   })
 
@@ -43,6 +54,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         {[
           { key: 'active', label: 'Active Exchanges' },
           { key: 'completed', label: 'Completed History' },
+          { key: 'cancelled', label: 'Cancelled' },
           { key: 'disputed', label: 'Disputes & Issues' },
         ].map((tab) => (
           <button
@@ -149,8 +161,27 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
               <MeetupAndDeliveryUI
                 order={ord}
                 onUpdateStage={onUpdateStage}
+                onCancelOrder={onCancelOrder}
                 onOpenDispute={onOpenDispute}
+                onConfirmMeetup={onConfirmMeetup}
+                onHandoverMeetup={onHandoverMeetup}
+                onConfirmDelivery={onConfirmDelivery}
               />
+
+              {ord.status === 'completed' && ord.backendOrderId && onSubmitReview && (
+                <button
+                  className="btn-secondary"
+                  style={{ marginTop: '12px' }}
+                  onClick={async () => {
+                    const rating = Number(window.prompt('Rate this exchange from 1 to 5', '5'))
+                    if (!Number.isInteger(rating) || rating < 1 || rating > 5) return
+                    const comment = window.prompt('Optional review comment', '') || ''
+                    await onSubmitReview(ord, rating, comment)
+                  }}
+                >
+                  Rate Exchange
+                </button>
+              )}
             </div>
           ))}
         </div>

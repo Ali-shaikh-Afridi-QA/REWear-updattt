@@ -4,13 +4,21 @@ import { Order } from '../types'
 interface MeetupAndDeliveryUIProps {
   order: Order
   onUpdateStage: (orderId: string, nextStageIndex: number) => void
+  onCancelOrder: (orderId: string) => void
   onOpenDispute: (order: Order) => void
+  onConfirmMeetup?: (order: Order, location: string) => void | Promise<void>
+  onHandoverMeetup?: (order: Order) => void | Promise<void>
+  onConfirmDelivery?: (order: Order) => void | Promise<void>
 }
 
 export const MeetupAndDeliveryUI: React.FC<MeetupAndDeliveryUIProps> = ({
   order,
   onUpdateStage,
+  onCancelOrder,
   onOpenDispute,
+  onConfirmMeetup,
+  onHandoverMeetup,
+  onConfirmDelivery,
 }) => {
   const [selectedSpot, setSelectedSpot] = useState(
     order.meetupDetails?.locationName || 'FC Road Starbucks / Goodluck Cafe Junction'
@@ -79,15 +87,24 @@ export const MeetupAndDeliveryUI: React.FC<MeetupAndDeliveryUIProps> = ({
             {order.stageIndex < 4 && (
               <button
                 className="btn-primary"
-                onClick={() => onUpdateStage(order.id, Math.min(5, order.stageIndex + 1))}
+                onClick={() => {
+                  if (order.stageIndex === 1 && onConfirmMeetup) return onConfirmMeetup(order, selectedSpot)
+                  if (order.stageIndex === 2 && onHandoverMeetup) return onHandoverMeetup(order)
+                  onUpdateStage(order.id, Math.min(5, order.stageIndex + 1))
+                }}
               >
-                {order.stageIndex === 2 ? 'Mark Item Handed Over (Seller)' : 'Buyer: Item Received & Release Points'}
+                {order.stageIndex === 1 ? 'Confirm Meetup Details' : order.stageIndex === 2 ? 'Mark Item Handed Over (Seller)' : 'Buyer: Item Received & Release Points'}
               </button>
             )}
 
             <button className="btn-secondary" style={{ color: 'var(--rose)', borderColor: '#F5C6C6' }} onClick={() => onOpenDispute(order)}>
               Report Problem / Open Dispute
             </button>
+            {order.stageIndex < 3 && (
+              <button className="btn-secondary" style={{ color: 'var(--rose)', borderColor: '#F5C6C6' }} onClick={() => onCancelOrder(order.id)}>
+                Cancel Exchange
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -155,15 +172,23 @@ export const MeetupAndDeliveryUI: React.FC<MeetupAndDeliveryUIProps> = ({
             {order.stageIndex < 4 && (
               <button
                 className="btn-primary"
-                onClick={() => onUpdateStage(order.id, Math.min(5, order.stageIndex + 1))}
+                onClick={() => {
+                  if (order.stageIndex === 1 && onConfirmDelivery) return onConfirmDelivery(order)
+                  onUpdateStage(order.id, Math.min(5, order.stageIndex + 1))
+                }}
               >
-                Buyer: Confirm Item Received & Release Points
+                {order.stageIndex === 1 ? 'Confirm Delivery Request' : 'Buyer: Confirm Item Received & Release Points'}
               </button>
             )}
 
             <button className="btn-secondary" style={{ color: 'var(--rose)', borderColor: '#F5C6C6' }} onClick={() => onOpenDispute(order)}>
               Report Problem / Open Dispute
             </button>
+            {order.stageIndex < 3 && (
+              <button className="btn-secondary" style={{ color: 'var(--rose)', borderColor: '#F5C6C6' }} onClick={() => onCancelOrder(order.id)}>
+                Cancel Exchange
+              </button>
+            )}
           </div>
         </div>
       )}
