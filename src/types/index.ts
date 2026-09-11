@@ -30,6 +30,9 @@ export interface User {
   pointsBalance: number
   lockedPoints: number
   badges: string[]
+
+  // Backend role
+  role?: string
 }
 
 export interface DefectItem {
@@ -40,6 +43,10 @@ export interface DefectItem {
 
 export interface Product {
   id: number
+
+  // Backend listing ID
+  backendListingId?: string
+
   title: string
   brand: string
   category: string
@@ -50,6 +57,7 @@ export interface Product {
   points: number
   distance: string
   distanceKm: number
+
   seller: {
     id: string
     name: string
@@ -59,6 +67,7 @@ export interface Product {
     exchangesCount: number
     joinedDate: string
   }
+
   images: string[]
   description: string
   pickupType: 'both' | 'meetup' | 'delivery'
@@ -89,9 +98,14 @@ export type OrderStage =
 
 export interface Order {
   id: string
+
+  // Backend order ID
+  backendOrderId?: string
+
   product: Product
   type: 'meetup' | 'delivery'
   points: number
+
   counterparty: {
     id?: string
     name: string
@@ -100,9 +114,11 @@ export interface Order {
     rating: number
     phone: string
   }
+
   status: 'active' | 'completed' | 'cancelled' | 'disputed'
   stage: OrderStage
   stageIndex: number // 0 to 5
+
   meetupDetails?: {
     locationName: string
     address: string
@@ -110,6 +126,7 @@ export interface Order {
     time: string
     isConfirmed: boolean
   }
+
   deliveryDetails?: {
     totalFee: number
     buyerShare: number
@@ -118,14 +135,17 @@ export interface Order {
     carrier: string
     status: string
   }
+
   disputeReason?: string
   disputeDetails?: string
   disputeStatus?: 'under_review' | 'resolved' | 'rejected'
+
   ratingSubmitted?: {
     stars: number
     comment: string
     date: string
   }
+
   createdAt: string
 }
 
@@ -166,6 +186,7 @@ export interface ChatThread {
   orderId: string
   productTitle: string
   productImage: string
+
   counterparty: {
     id: string
     name: string
@@ -173,6 +194,7 @@ export interface ChatThread {
     rating: number
     isBlocked?: boolean
   }
+
   lastMessage: string
   lastMessageTime: string
   unreadCount: number
@@ -205,4 +227,3 @@ export type UXStateMode =
   | 'delivery_fee_pending'
   | 'dispute_in_progress'
   | 'success_confirmation'
-
