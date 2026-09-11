@@ -47,19 +47,42 @@ export interface ApiDiscoveryListing {
   id: string
   title: string
   description?: string | null
+
   points_required?: number
   condition?: string | null
+
   category_id?: string | null
   brand_id?: string | null
   seller_id?: string | null
+
   city?: string | null
+  location?: string | null
+
+  size?: string | null
+  distance_km?: number | null
+
   status?: string
+
+  seller?: {
+    id: string
+    username: string
+  } | null
+
   photos?: Array<{
     id: string
     url: string
   }>
+
   created_at?: string
 }
+
+export interface ApiDiscoveryResponse {
+  items: ApiDiscoveryListing[]
+}
+
+/* =========================
+   User Mapper
+========================= */
 
 export function toAppUser(apiUser: ApiUser): User {
   const createdAt = new Date(apiUser.created_at)
@@ -75,29 +98,49 @@ export function toAppUser(apiUser: ApiUser): User {
     id: apiUser.id,
     email: apiUser.email,
     name: apiUser.profile?.display_name || apiUser.username,
+
     avatar:
       apiUser.profile?.avatar_url ||
       'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+
     location: apiUser.profile?.city || 'Pune, India',
     memberSince,
+
     rating: 0,
     ratingCount: 0,
+
     successfulExchanges: 0,
     donationsCompleted: 0,
     itemsListed: 0,
+
     pointsBalance: 0,
     lockedPoints: 0,
-    badges: apiUser.is_active ? ['Verified Member'] : [],
+
+    badges: apiUser.is_active
+      ? ['Verified Member']
+      : [],
+
+    // Backend role
+    role: apiUser.role,
   }
 }
 
+/* =========================
+   Storage
+========================= */
+
 function getStoredValue(key: string): string | null {
-  if (typeof window === 'undefined') return null
+  if (typeof window === 'undefined') {
+    return null
+  }
+
   return window.localStorage.getItem(key)
 }
 
 export function saveAuthTokens(tokens: TokenResponse) {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') {
+    return
+  }
 
   window.localStorage.setItem(
     ACCESS_TOKEN_KEY,
@@ -111,31 +154,50 @@ export function saveAuthTokens(tokens: TokenResponse) {
 }
 
 export function clearAuthTokens() {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') {
+    return
+  }
 
-  window.localStorage.removeItem(ACCESS_TOKEN_KEY)
-  window.localStorage.removeItem(REFRESH_TOKEN_KEY)
+  window.localStorage.removeItem(
+    ACCESS_TOKEN_KEY
+  )
+
+  window.localStorage.removeItem(
+    REFRESH_TOKEN_KEY
+  )
 }
 
 function getAccessToken() {
-  return getStoredValue(ACCESS_TOKEN_KEY)
+  return getStoredValue(
+    ACCESS_TOKEN_KEY
+  )
 }
+
+/* =========================
+   Generic API Request
+========================= */
 
 async function request<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${
-    endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+    endpoint.startsWith('/')
+      ? endpoint
+      : `/${endpoint}`
   }`
 
   const accessToken = getAccessToken()
 
   const headers = {
     'Content-Type': 'application/json',
+
     ...(accessToken
-      ? { Authorization: `Bearer ${accessToken}` }
+      ? {
+          Authorization: `Bearer ${accessToken}`,
+        }
       : {}),
+
     ...(options.headers || {}),
   }
 
@@ -146,7 +208,9 @@ async function request<T = any>(
     })
 
     if (!res.ok) {
-      const errData = await res.json().catch(() => ({}))
+      const errData = await res
+        .json()
+        .catch(() => ({}))
 
       throw new Error(
         errData.detail ||
@@ -173,14 +237,20 @@ async function request<T = any>(
   }
 }
 
+/* =========================
+   API Service
+========================= */
+
 export const apiService = {
   // =========================
   // Health Checks
   // =========================
 
-  getHealth: () => request('/health'),
+  getHealth: () =>
+    request('/health'),
 
-  getReady: () => request('/ready'),
+  getReady: () =>
+    request('/ready'),
 
   getRedisHealth: () =>
     request('/health/redis'),
@@ -250,52 +320,38 @@ export const apiService = {
   getProfile: () =>
     request<ApiUser>('/users/me'),
 
-  restoreSession: async (): Promise<ApiUser | null> => {
-    const accessToken = getAccessToken()
-    const refreshToken =
-      getStoredValue(REFRESH_TOKEN_KEY)
+  restoreSession:
+    async (): Promise<ApiUser | null> => {
+      const accessToken =
+        getAccessToken()
 
-    if (!accessToken && !refreshToken) {
-      return null
-    }
-
-    try {
-      if (accessToken) {
-        return await request<ApiUser>(
-          '/users/me'
-        )
-      }
-
-      const tokens =
-        await request<TokenResponse>(
-          '/auth/refresh',
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              refresh_token: refreshToken,
-            }),
-          }
+      const refreshToken =
+        getStoredValue(
+          REFRESH_TOKEN_KEY
         )
 
-      saveAuthTokens(tokens)
-
-      return await request<ApiUser>(
-        '/users/me'
-      )
-    } catch {
-      if (!refreshToken) {
-        clearAuthTokens()
+      if (
+        !accessToken &&
+        !refreshToken
+      ) {
         return null
       }
 
       try {
+        if (accessToken) {
+          return await request<ApiUser>(
+            '/users/me'
+          )
+        }
+
         const tokens =
           await request<TokenResponse>(
             '/auth/refresh',
             {
               method: 'POST',
               body: JSON.stringify({
-                refresh_token: refreshToken,
+                refresh_token:
+                  refreshToken,
               }),
             }
           )
@@ -306,11 +362,35 @@ export const apiService = {
           '/users/me'
         )
       } catch {
-        clearAuthTokens()
-        return null
+        if (!refreshToken) {
+          clearAuthTokens()
+          return null
+        }
+
+        try {
+          const tokens =
+            await request<TokenResponse>(
+              '/auth/refresh',
+              {
+                method: 'POST',
+                body: JSON.stringify({
+                  refresh_token:
+                    refreshToken,
+                }),
+              }
+            )
+
+          saveAuthTokens(tokens)
+
+          return await request<ApiUser>(
+            '/users/me'
+          )
+        } catch {
+          clearAuthTokens()
+          return null
+        }
       }
-    }
-  },
+    },
 
   updateProfile: (data: any) =>
     request('/users/me', {
@@ -337,11 +417,13 @@ export const apiService = {
   // =========================
 
   getCategories: (params?: any) =>
-    request(
+    request<CatalogItem[]>(
       `/catalog/categories${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
@@ -356,11 +438,13 @@ export const apiService = {
     ),
 
   getBrands: (params?: any) =>
-    request(
+    request<CatalogItem[]>(
       `/catalog/brands${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
@@ -381,23 +465,32 @@ export const apiService = {
   getWallet: () =>
     request('/wallet'),
 
-  getWalletTransactions: (params?: any) =>
+  getWalletTransactions: (
+    params?: any
+  ) =>
     request(
       `/wallet/transactions${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
 
   reservePoints: (data: any) =>
-    request('/wallet/holds', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    request(
+      '/wallet/holds',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    ),
 
-  releasePoints: (holdId: string) =>
+  releasePoints: (
+    holdId: string
+  ) =>
     request(
       `/wallet/holds/${holdId}/release`,
       {
@@ -405,7 +498,9 @@ export const apiService = {
       }
     ),
 
-  capturePoints: (holdId: string) =>
+  capturePoints: (
+    holdId: string
+  ) =>
     request(
       `/wallet/holds/${holdId}/capture`,
       {
@@ -417,60 +512,87 @@ export const apiService = {
   // Marketplace Discovery & Listings
   // =========================
 
-  searchListings: (params?: any) =>
-    request(
+  searchListings: (
+    params?: any
+  ) =>
+    request<ApiDiscoveryResponse>(
       `/listings/search${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
 
   createListing: (data: any) =>
-    request('/listings', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-
-  getListings: (params?: any) =>
     request(
+      '/listings',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    ),
+
+  getListings: (
+    params?: any
+  ) =>
+    request<ApiDiscoveryResponse>(
       `/listings${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
 
-  getMyListings: (params?: any) =>
+  getMyListings: (
+    params?: any
+  ) =>
     request(
       `/listings/mine${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
 
   getListing: (id: string) =>
-    request(`/listings/${id}`),
+    request(
+      `/listings/${id}`
+    ),
 
   updateListing: (
     id: string,
     data: any
   ) =>
-    request(`/listings/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    }),
+    request(
+      `/listings/${id}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }
+    ),
 
-  deleteListing: (id: string) =>
-    request(`/listings/${id}`, {
-      method: 'DELETE',
-    }),
+  deleteListing: (
+    id: string
+  ) =>
+    request(
+      `/listings/${id}`,
+      {
+        method: 'DELETE',
+      }
+    ),
 
-  publishListing: (id: string) =>
+  publishListing: (
+    id: string
+  ) =>
     request(
       `/listings/${id}/publish`,
       {
@@ -478,7 +600,9 @@ export const apiService = {
       }
     ),
 
-  cancelListing: (id: string) =>
+  cancelListing: (
+    id: string
+  ) =>
     request(
       `/listings/${id}/cancel`,
       {
@@ -490,7 +614,8 @@ export const apiService = {
     id: string,
     formData: FormData
   ) => {
-    const accessToken = getAccessToken()
+    const accessToken =
+      getAccessToken()
 
     const res = await fetch(
       `${API_BASE_URL}/listings/${id}/photos`,
@@ -507,7 +632,9 @@ export const apiService = {
 
     if (!res.ok) {
       const errData =
-        await res.json().catch(() => ({}))
+        await res
+          .json()
+          .catch(() => ({}))
 
       throw new Error(
         errData.detail ||
@@ -519,8 +646,12 @@ export const apiService = {
     return res.json()
   },
 
-  getPhotos: (id: string) =>
-    request(`/listings/${id}/photos`),
+  getPhotos: (
+    id: string
+  ) =>
+    request(
+      `/listings/${id}/photos`
+    ),
 
   deletePhoto: (
     id: string,
@@ -552,25 +683,38 @@ export const apiService = {
   // =========================
 
   createOrder: (data: any) =>
-    request('/orders', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    request(
+      '/orders',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    ),
 
-  getOrders: (params?: any) =>
+  getOrders: (
+    params?: any
+  ) =>
     request(
       `/orders${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
 
-  getOrder: (id: string) =>
-    request(`/orders/${id}`),
+  getOrder: (
+    id: string
+  ) =>
+    request(
+      `/orders/${id}`
+    ),
 
-  cancelOrder: (id: string) =>
+  cancelOrder: (
+    id: string
+  ) =>
     request(
       `/orders/${id}/cancel`,
       {
@@ -578,7 +722,9 @@ export const apiService = {
       }
     ),
 
-  confirmOrderReceipt: (id: string) =>
+  confirmOrderReceipt: (
+    id: string
+  ) =>
     request(
       `/orders/${id}/confirm-receipt`,
       {
@@ -598,7 +744,9 @@ export const apiService = {
       }
     ),
 
-  confirmMeetup: (id: string) =>
+  confirmMeetup: (
+    id: string
+  ) =>
     request(
       `/orders/${id}/meetup/confirm`,
       {
@@ -606,7 +754,9 @@ export const apiService = {
       }
     ),
 
-  cancelMeetup: (id: string) =>
+  cancelMeetup: (
+    id: string
+  ) =>
     request(
       `/orders/${id}/meetup/cancel`,
       {
@@ -614,7 +764,9 @@ export const apiService = {
       }
     ),
 
-  handoverMeetup: (id: string) =>
+  handoverMeetup: (
+    id: string
+  ) =>
     request(
       `/orders/${id}/meetup/handover`,
       {
@@ -650,23 +802,34 @@ export const apiService = {
   // Donations, Reviews & Disputes
   // =========================
 
-  submitDonation: (data: any) =>
-    request('/donations', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  submitDonation: (
+    data: any
+  ) =>
+    request(
+      '/donations',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    ),
 
-  getDonations: (params?: any) =>
+  getDonations: (
+    params?: any
+  ) =>
     request(
       `/donations${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
 
-  approveDonation: (id: string) =>
+  approveDonation: (
+    id: string
+  ) =>
     request(
       `/donations/${id}/approve`,
       {
@@ -674,7 +837,9 @@ export const apiService = {
       }
     ),
 
-  completeDonation: (id: string) =>
+  completeDonation: (
+    id: string
+  ) =>
     request(
       `/donations/${id}/complete`,
       {
@@ -694,7 +859,9 @@ export const apiService = {
       }
     ),
 
-  getUserRating: (userId: string) =>
+  getUserRating: (
+    userId: string
+  ) =>
     request(
       `/users/${userId}/rating`
     ),
@@ -727,12 +894,16 @@ export const apiService = {
   // Notifications & Admin
   // =========================
 
-  getNotifications: (params?: any) =>
+  getNotifications: (
+    params?: any
+  ) =>
     request(
       `/notifications${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
@@ -748,14 +919,20 @@ export const apiService = {
     ),
 
   getAdminDashboard: () =>
-    request('/admin/dashboard'),
+    request(
+      '/admin/dashboard'
+    ),
 
-  getAdminUsers: (params?: any) =>
+  getAdminUsers: (
+    params?: any
+  ) =>
     request(
       `/admin/users${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
@@ -772,12 +949,16 @@ export const apiService = {
       }
     ),
 
-  getAdminListings: (params?: any) =>
+  getAdminListings: (
+    params?: any
+  ) =>
     request(
       `/admin/listings${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
@@ -794,12 +975,16 @@ export const apiService = {
       }
     ),
 
-  getAdminDisputes: (params?: any) =>
+  getAdminDisputes: (
+    params?: any
+  ) =>
     request(
       `/admin/disputes${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
@@ -889,7 +1074,9 @@ export const apiService = {
       `/admin/reports${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
@@ -913,14 +1100,21 @@ export const apiService = {
       `/admin/audit-logs${
         params
           ? '?' +
-            new URLSearchParams(params).toString()
+            new URLSearchParams(
+              params
+            ).toString()
           : ''
       }`
     ),
 
-  createReport: (data: any) =>
-    request('/reports', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  createReport: (
+    data: any
+  ) =>
+    request(
+      '/reports',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    ),
 }
