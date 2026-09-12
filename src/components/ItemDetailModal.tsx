@@ -3,6 +3,9 @@ import { X } from 'lucide-react'
 import { Product, User } from '../types'
 import { PointsIcon } from './PointsIcon'
 
+const FALLBACK_IMAGE =
+  'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=900&q=80'
+
 interface ItemDetailModalProps {
   product: Product
   user: User
@@ -13,6 +16,7 @@ interface ItemDetailModalProps {
   onReportListing: (product: Product) => void
   photoIds?: string[]
   onDeletePhoto?: (photoId: string) => Promise<void>
+  isOwner?: boolean
 }
 
 export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
@@ -23,6 +27,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   onToggleFavorite,
   onInitiateExchange,
   onReportListing,
+  isOwner = false,
   photoIds = [],
   onDeletePhoto,
 }) => {
@@ -40,7 +45,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
           <div style={{ background: '#EAF0E8', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ position: 'relative', height: '320px', borderRadius: '12px', overflow: 'hidden', background: '#fff' }}>
               <img
-                src={product.images[activeImgIndex] || product.images[0]}
+                src={product.images[activeImgIndex] || product.images[0] || FALLBACK_IMAGE}
                 alt={product.title}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
@@ -48,7 +53,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
             {/* Thumbnails */}
             {product.images.length > 1 && (
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
                 {product.images.map((img, idx) => (
                   <div key={idx} style={{ position: 'relative' }}>
                     <button
@@ -149,6 +154,10 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                 <strong>{product.distance} away</strong>
               </div>
               <div>
+                <span style={{ color: 'var(--muted)', display: 'block', fontSize: '11px' }}>Location</span>
+                <strong>{product.seller.location || 'India'}</strong>
+              </div>
+              <div>
                 <span style={{ color: 'var(--muted)', display: 'block', fontSize: '11px' }}>Fulfillment</span>
                 <strong>{product.pickupType === 'both' ? 'Meetup or Delivery' : product.pickupType === 'meetup' ? 'Nearby Meetup' : 'Long Distance Delivery'}</strong>
               </div>
@@ -199,20 +208,29 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '13px', fontWeight: 700 }}>{product.seller.name}</div>
                 <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                  ★ {product.seller.rating} rating • {product.seller.exchangesCount} swaps
+                  {product.seller.location || 'India'} • ★ {product.seller.rating} rating • {product.seller.exchangesCount} swaps
                 </div>
               </div>
             </div>
 
             {/* Clean Action Buttons without Icons */}
             <div style={{ marginTop: 'auto', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button
-                className="btn-primary"
-                style={{ flex: 1, height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                onClick={() => onInitiateExchange(product)}
-              >
-                Get / Exchange Item (<PointsIcon size={14} color="#fff" />{product.points} Pts)
-              </button>
+              {isOwner ? (
+                  <div
+                    className="badge-lime"
+                    style={{ flex: 1, minHeight: '46px', display: 'grid', placeItems: 'center' }}
+                  >
+                    YOUR LISTING
+                  </div>
+                ) : (
+                  <button
+                    className="btn-primary"
+                    style={{ flex: 1, height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    onClick={() => onInitiateExchange(product)}
+                  >
+                    Get / Exchange Item (<PointsIcon size={14} color="#fff" />{product.points} Pts)
+                  </button>
+                )}
 
               <button
                 className="btn-secondary"

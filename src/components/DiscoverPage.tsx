@@ -6,6 +6,7 @@ import {
   apiService,
   CatalogItem,
   ApiDiscoveryListing,
+  toApiMediaUrl,
 } from '../services/apiService'
 
 interface DiscoverPageProps {
@@ -291,7 +292,8 @@ export const DiscoverPage: React.FC<
       FilterOptions['sortBy'],
       string
     > = {
-      nearest: 'distance',
+      // The backend only accepts distance sorting with latitude/longitude.
+      nearest: 'newest',
       newest: 'newest',
       lowest_points: 'price_asc',
       best_rated: 'newest',
@@ -340,25 +342,33 @@ export const DiscoverPage: React.FC<
     }
 
     apiService.searchListings(params)
-      .then((response) => {
+      .then(async (response) => {
         if (!isMounted) return
 
         const listingItems = Array.isArray(response)
           ? response
           : response.items
 
-        setRemoteProducts(
-          listingItems.map(
-            (
-              item: ApiDiscoveryListing
-            ) =>
-              mapDiscoveryListing(
-                item,
-                categoryItems,
-                brandItems
-              )
-          )
+        const mappedProducts = await Promise.all(
+          listingItems.map(async (item: ApiDiscoveryListing) => {
+            const product = mapDiscoveryListing(item, categoryItems, brandItems)
+
+            try {
+              const photos = await apiService.getPhotos(item.id)
+              const imageUrls = photos
+                .sort((left, right) => left.sort_order - right.sort_order)
+                .map((photo) => toApiMediaUrl(photo.photo_url))
+
+              return imageUrls.length > 0
+                ? { ...product, images: imageUrls }
+                : product
+            } catch {
+              return product
+            }
+          })
         )
+
+        if (isMounted) setRemoteProducts(mappedProducts)
       })
       .catch(() => {
         if (isMounted) {
@@ -376,7 +386,9 @@ export const DiscoverPage: React.FC<
   ])
 
   const activeProducts = useMemo(() => {
-    if (!remoteProducts) return products
+    if (!remoteProducts) {
+      return products.filter((product) => product.seller.id !== user.id)
+    }
 
     const byBackendId = new Map(
       remoteProducts
@@ -384,22 +396,10 @@ export const DiscoverPage: React.FC<
         .map((product) => [product.backendListingId, product])
     )
 
-    products.forEach((product) => {
-      if (product.backendListingId) {
-        const remoteProduct = byBackendId.get(product.backendListingId)
-        byBackendId.set(product.backendListingId, remoteProduct
-          ? {
-              ...product,
-              ...remoteProduct,
-              points: remoteProduct.points || product.points,
-              images: remoteProduct.images.length > 0 ? remoteProduct.images : product.images,
-            }
-          : product)
-      }
-    })
-
-    return Array.from(byBackendId.values())
-  }, [remoteProducts, products])
+    return Array.from(byBackendId.values()).filter(
+      (product) => product.seller.id !== user.id
+    )
+  }, [remoteProducts, user.id])
 
   const filteredProducts =
     useMemo(() => {

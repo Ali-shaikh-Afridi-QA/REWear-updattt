@@ -3,6 +3,9 @@ import { Heart, MapPin, Star, AlertCircle } from 'lucide-react'
 import { Product } from '../types'
 import { PointsIcon } from './PointsIcon'
 
+const FALLBACK_IMAGE =
+  'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=900&q=80'
+
 interface ProductCardProps {
   product: Product
   onClick: () => void
@@ -21,7 +24,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Image Wrap */}
       <div style={{ position: 'relative', height: '240px', background: '#EAF0E8' }} onClick={onClick}>
         <img
-          src={product.images[0]}
+          src={product.images[0] || FALLBACK_IMAGE}
           alt={product.title}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
@@ -92,9 +95,37 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           }}
         >
           <MapPin size={11} color="#627571" />
-          {product.distance}
+          {product.seller.location || 'Location unavailable'}
         </div>
       </div>
+
+      {product.images.length > 1 && (
+        <div
+          onClick={onClick}
+          style={{
+            display: 'flex',
+            gap: '6px',
+            padding: '8px 10px 0',
+            overflowX: 'auto',
+          }}
+        >
+          {product.images.slice(1).map((image, index) => (
+            <img
+              key={`${image}-${index}`}
+              src={image}
+              alt={`${product.title} photo ${index + 2}`}
+              style={{
+                width: 54,
+                height: 54,
+                flex: '0 0 54px',
+                objectFit: 'cover',
+                borderRadius: 6,
+                border: '1px solid var(--line)',
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Product Content */}
       <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', flex: 1 }} onClick={onClick}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   View,
   User,
@@ -286,6 +286,8 @@ export const App: React.FC = () => {
   const [selectedPhotoIds, setSelectedPhotoIds] =
     useState<string[]>([])
 
+  const detailRequestId = useRef(0)
+
   const [productToExchange, setProductToExchange] =
     useState<Product | null>(null)
 
@@ -457,6 +459,8 @@ export const App: React.FC = () => {
   }
 
   const handleSelectProduct = async (product: Product) => {
+    const requestId = detailRequestId.current + 1
+    detailRequestId.current = requestId
     setSelectedProduct(product)
     setSelectedPhotoIds([])
 
@@ -468,11 +472,11 @@ export const App: React.FC = () => {
         apiService.getPhotos(product.backendListingId),
       ])
 
-      if (listingResult.status !== 'fulfilled') {
-        throw listingResult.reason
-      }
+      if (requestId !== detailRequestId.current) return
 
-      const listing = listingResult.value as Record<string, unknown>
+      const listing = listingResult.status === 'fulfilled'
+        ? listingResult.value as Record<string, unknown>
+        : {}
       const seller = listing.seller as Record<string, unknown> | undefined
       const sellerId = typeof seller?.id === 'string' ? seller.id : undefined
       const ratingResponse = sellerId
@@ -493,7 +497,7 @@ export const App: React.FC = () => {
         )
         .filter((url): url is string => Boolean(url))
 
-      setSelectedPhotoIds(photoIds)
+      if (photos.length > 0) setSelectedPhotoIds(photoIds)
 
       setSelectedProduct((current) => {
         if (
@@ -1180,6 +1184,7 @@ export const App: React.FC = () => {
             selectedProduct
           }
           user={user}
+          isOwner={selectedProduct.seller.id === user.id}
           onClose={() =>
             setSelectedProduct(null)
           }
