@@ -8,6 +8,7 @@ interface MeetupAndDeliveryUIProps {
   onOpenDispute: (order: Order) => void
   onConfirmMeetup?: (order: Order, location: string) => void | Promise<void>
   onHandoverMeetup?: (order: Order) => void | Promise<void>
+  onCancelMeetup?: (order: Order) => void | Promise<void>
   onConfirmDelivery?: (order: Order) => void | Promise<void>
 }
 
@@ -18,6 +19,7 @@ export const MeetupAndDeliveryUI: React.FC<MeetupAndDeliveryUIProps> = ({
   onOpenDispute,
   onConfirmMeetup,
   onHandoverMeetup,
+  onCancelMeetup,
   onConfirmDelivery,
 }) => {
   const [selectedSpot, setSelectedSpot] = useState(
@@ -103,6 +105,11 @@ export const MeetupAndDeliveryUI: React.FC<MeetupAndDeliveryUIProps> = ({
             {order.stageIndex < 3 && (
               <button className="btn-secondary" style={{ color: 'var(--rose)', borderColor: '#F5C6C6' }} onClick={() => onCancelOrder(order.id)}>
                 Cancel Exchange
+              </button>
+            )}
+            {onCancelMeetup && order.stageIndex < 3 && (
+              <button className="btn-secondary" style={{ color: 'var(--rose)', borderColor: '#F5C6C6' }} onClick={() => onCancelMeetup(order)}>
+                Cancel Meetup
               </button>
             )}
           </div>

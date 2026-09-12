@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { User } from '../types'
 import { PointsIcon } from './PointsIcon'
+import { apiService, CatalogItem } from '../services/apiService'
 
 interface DonateFlowProps {
   user: User
@@ -40,15 +41,53 @@ export const DonateFlow: React.FC<DonateFlowProps> = ({
   const [isWashed, setIsWashed] = useState(true)
   const [isWearable, setIsWearable] = useState(true)
   const [hasMajorTears, setHasMajorTears] = useState(false)
+  const [categories, setCategories] = useState<CatalogItem[]>([])
+  const [rewardPoints, setRewardPoints] = useState(0)
+  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [photos, setPhotos] = useState<string[]>([
     'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=400&q=80',
     'https://images.unsplash.com/photo-1603252110481-7ba873bf42ab?auto=format&fit=crop&w=400&q=80',
   ])
 
-  const calculatedPoints = clothingCount * 135
+  useEffect(() => {
+    apiService.getCategories({ limit: 200 }).then(setCategories).catch(() => setError('Unable to load donation categories.'))
+  }, [])
 
-  const handleConfirm = () => {
-    setStep(3) // Confirmation step
+  const handleConfirm = async () => {
+    const categoryId = categories[0]?.id
+    if (!categoryId) {
+      setError('A donation category is required. Please try again.')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError('')
+    try {
+      const donation = await apiService.submitDonation({
+        title: `${clothingCount} garment donation`,
+        description: `Donation to ${ngoPartner}. Washed: ${isWashed}. Wearable: ${isWearable}.`,
+        category_id: categoryId,
+        age: 1,
+        condition: hasMajorTears ? 'fair' : 'good',
+        questionnaire: {
+          stains: false,
+          tears: hasMajorTears,
+          fading: false,
+          zip_condition: true,
+          buttons: true,
+          stitching: !hasMajorTears,
+          other_defects: false,
+        },
+        idempotency_key: crypto.randomUUID(),
+      })
+      setRewardPoints(typeof donation.reward_points === 'number' ? donation.reward_points : 0)
+      setStep(3)
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Unable to register donation.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const selectedNgoInfo = NGO_DETAILS[ngoPartner] || NGO_DETAILS['Goonj NGO']
@@ -70,7 +109,7 @@ export const DonateFlow: React.FC<DonateFlowProps> = ({
             </div>
             <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', margin: '4px 0' }}>
               <PointsIcon size={28} color="#203D43" />
-              <span>+{calculatedPoints} Points</span>
+              <span>+{rewardPoints} Points</span>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
               Added directly to your ReWear Points Wallet balance
@@ -81,9 +120,6 @@ export const DonateFlow: React.FC<DonateFlowProps> = ({
           <div style={{ textAlign: 'left', background: 'var(--bg-cream)', padding: '18px', borderRadius: '12px', marginBottom: '28px', border: '1px solid var(--line)', fontSize: '13px' }}>
             <div style={{ fontWeight: 800, color: 'var(--ink)', fontSize: '15px', marginBottom: '8px' }}>
               Fulfillment & Drop-Off Instructions
-            </div>
-            <div style={{ marginBottom: '6px' }}>
-              <strong>Drop-Off Reference Code:</strong> <span style={{ fontFamily: 'monospace', fontSize: '14px', background: '#fff', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--line)', fontWeight: 700 }}>RW-DON-{Math.floor(1000 + Math.random() * 9000)}</span>
             </div>
             <div style={{ marginBottom: '4px', color: 'var(--muted)' }}>
               <strong>Center Address:</strong> {selectedNgoInfo.address}
@@ -132,7 +168,7 @@ export const DonateFlow: React.FC<DonateFlowProps> = ({
                   style={{ width: '100%', height: '42px', borderRadius: '8px', border: '1px solid var(--line)', padding: '0 12px', fontSize: '14px', outline: 0 }}
                 >
                   <option value={1}>1 Item (+135 Pts)</option>
-                  <option value={3}>3 Items — Standard Bundle (+405 Pts)</option>
+                  <option value={3}>3 Items — Standard Bundle</option>
                   <option value={5}>5 Items — Large Box (+675 Pts)</option>
                   <option value={10}>10+ Items — Wardrobe Clearance (+1,350 Pts)</option>
                 </select>
@@ -249,7 +285,7 @@ export const DonateFlow: React.FC<DonateFlowProps> = ({
               </div>
               <div style={{ fontSize: '36px', fontWeight: 800, color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', margin: '4px 0' }}>
                 <PointsIcon size={32} color="#203D43" />
-                <span>+{calculatedPoints} Points</span>
+                <span>+{rewardPoints} Points</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
                 Guaranteed points credited to your wallet upon drop-off code verification at {ngoPartner}.
@@ -258,8 +294,9 @@ export const DonateFlow: React.FC<DonateFlowProps> = ({
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between' }}>
               <button className="btn-secondary" onClick={() => setStep(1)}>Back</button>
-              <button className="btn-primary" onClick={handleConfirm}>
-                Confirm Donation & Generate Drop-off Code
+              {error && <div style={{ color: 'var(--rose)', fontSize: '12px', fontWeight: 700, marginBottom: '12px' }}>{error}</div>}
+              <button className="btn-primary" disabled={isSubmitting} onClick={handleConfirm}>
+                {isSubmitting ? 'Registering donation...' : 'Confirm Donation'}
               </button>
             </div>
           </div>

@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { Send, Image, ShieldAlert, X } from 'lucide-react'
 import { User, ChatThread } from '../types'
-import { MOCK_CHAT_THREADS } from '../mockData'
 
 interface MessagesPageProps {
   user: User
@@ -9,8 +8,8 @@ interface MessagesPageProps {
 }
 
 export const MessagesPage: React.FC<MessagesPageProps> = ({ user, onShowToast }) => {
-  const [threads, setThreads] = useState<ChatThread[]>(MOCK_CHAT_THREADS)
-  const [activeThreadId, setActiveThreadId] = useState<string>(MOCK_CHAT_THREADS[0].id)
+  const [threads, setThreads] = useState<ChatThread[]>([])
+  const [activeThreadId, setActiveThreadId] = useState<string>('')
   const [inputMessage, setInputMessage] = useState('')
 
   const activeThread = threads.find((t) => t.id === activeThreadId) || threads[0]

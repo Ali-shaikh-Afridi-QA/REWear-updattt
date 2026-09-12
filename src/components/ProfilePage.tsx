@@ -15,6 +15,7 @@ interface ProfilePageProps {
   onPublishListing?: (product: Product) => Promise<void> | void
   onCancelListing?: (product: Product) => Promise<void> | void
   onDeleteListing?: (product: Product) => Promise<void> | void
+  onUpdateListing?: (product: Product, data: { title: string; description: string }) => Promise<void>
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
@@ -29,6 +30,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onPublishListing,
   onCancelListing,
   onDeleteListing,
+  onUpdateListing,
 }) => {
   const [activeTab, setActiveTab] = useState<'listings' | 'favorites' | 'badges'>('listings')
   const [isEditing, setIsEditing] = useState(false)
@@ -38,6 +40,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [avatar, setAvatar] = useState(user.avatar || '')
   const [isSaving, setIsSaving] = useState(false)
   const [profileError, setProfileError] = useState('')
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [listingTitle, setListingTitle] = useState('')
+  const [listingDescription, setListingDescription] = useState('')
+  const [listingSaving, setListingSaving] = useState(false)
 
   const savedProducts = products.filter((p) => favorites.includes(p.id))
 
@@ -224,7 +230,60 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     {onDeleteListing && (
                       <button className="btn-secondary" style={{ padding: '6px 8px', fontSize: '11px', color: 'var(--rose)' }} onClick={() => onDeleteListing(prod)}>Delete</button>
                     )}
+                    {onUpdateListing && (
+                      <button
+                        className="btn-secondary"
+                        style={{ padding: '6px 8px', fontSize: '11px' }}
+                        onClick={() => {
+                          setEditingProduct(prod)
+                          setListingTitle(prod.title)
+                          setListingDescription(prod.description)
+                        }}
+                      >
+                        Edit
+                      </button>
+                    )}
                   </div>
+                )}
+                {editingProduct?.id === prod.id && onUpdateListing && (
+                  <form
+                    onSubmit={async (event) => {
+                      event.preventDefault()
+                      setListingSaving(true)
+                      try {
+                        await onUpdateListing(prod, {
+                          title: listingTitle.trim(),
+                          description: listingDescription.trim(),
+                        })
+                        setEditingProduct(null)
+                      } finally {
+                        setListingSaving(false)
+                      }
+                    }}
+                    style={{ display: 'grid', gap: '8px', marginTop: '8px' }}
+                  >
+                    <input
+                      value={listingTitle}
+                      onChange={(event) => setListingTitle(event.target.value)}
+                      required
+                      placeholder="Listing title"
+                    />
+                    <textarea
+                      value={listingDescription}
+                      onChange={(event) => setListingDescription(event.target.value)}
+                      required
+                      rows={3}
+                      placeholder="Listing description"
+                    />
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button className="btn-primary" type="submit" disabled={listingSaving}>
+                        {listingSaving ? 'Saving...' : 'Save changes'}
+                      </button>
+                      <button className="btn-secondary" type="button" onClick={() => setEditingProduct(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
                 )}
               </div>
             ))}

@@ -11,6 +11,8 @@ interface ItemDetailModalProps {
   onToggleFavorite: (id: number) => void
   onInitiateExchange: (product: Product) => void
   onReportListing: (product: Product) => void
+  photoIds?: string[]
+  onDeletePhoto?: (photoId: string) => Promise<void>
 }
 
 export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
@@ -21,6 +23,8 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   onToggleFavorite,
   onInitiateExchange,
   onReportListing,
+  photoIds = [],
+  onDeletePhoto,
 }) => {
   const [activeImgIndex, setActiveImgIndex] = useState(0)
 
@@ -46,20 +50,44 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             {product.images.length > 1 && (
               <div style={{ display: 'flex', gap: '8px' }}>
                 {product.images.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveImgIndex(idx)}
-                    style={{
-                      width: '60px',
-                      height: '60px',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      border: idx === activeImgIndex ? '3px solid var(--ink)' : '2px solid transparent',
-                      opacity: idx === activeImgIndex ? 1 : 0.7,
-                    }}
-                  >
-                    <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </button>
+                  <div key={idx} style={{ position: 'relative' }}>
+                    <button
+                      onClick={() => setActiveImgIndex(idx)}
+                      style={{
+                        width: '60px',
+                        height: '60px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        border: idx === activeImgIndex ? '3px solid var(--ink)' : '2px solid transparent',
+                        opacity: idx === activeImgIndex ? 1 : 0.7,
+                      }}
+                    >
+                      <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </button>
+                    {onDeletePhoto && photoIds[idx] && (
+                      <button
+                        type="button"
+                        aria-label="Delete photo"
+                        title="Delete photo"
+                        onClick={() => void onDeletePhoto(photoIds[idx])}
+                        style={{
+                          position: 'absolute',
+                          top: -6,
+                          right: -6,
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          border: 0,
+                          background: 'var(--rose)',
+                          color: '#fff',
+                          fontSize: 12,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

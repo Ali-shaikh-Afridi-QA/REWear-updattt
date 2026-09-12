@@ -18,29 +18,6 @@ interface DiscoverPageProps {
   onOpenDonate: () => void
 }
 
-const CATEGORIES = [
-  'All',
-  'Jackets',
-  'Dresses',
-  'Shoes',
-  'T-Shirts',
-  'Hoodies',
-  'Shirts',
-  'Jeans',
-]
-
-const BRANDS = [
-  'All',
-  "Levi's",
-  'Zara',
-  'Nike',
-  'H&M',
-  'Adidas',
-  'Uniqlo',
-  'Mango',
-  'Thrift Vintage',
-]
-
 const SIZES = [
   'All',
   'XS',
@@ -139,8 +116,8 @@ function mapDiscoveryListing(
       rating: 0,
 
       location:
-        item.location ||
-        'Location unavailable',
+        item.location?.trim() ||
+        'India',
 
       exchangesCount: 0,
 
@@ -182,10 +159,10 @@ export const DiscoverPage: React.FC<
     useState(false)
 
   const [categories, setCategories] =
-    useState(CATEGORIES)
+    useState(['All'])
 
   const [brands, setBrands] =
-    useState(BRANDS)
+    useState(['All'])
 
   const [categoryItems, setCategoryItems] =
     useState<CatalogItem[]>([])
@@ -325,9 +302,6 @@ export const DiscoverPage: React.FC<
       string | number
     > = {
       limit: 100,
-      max_points: filters.maxPoints,
-      radius_km:
-        filters.maxDistanceKm,
       sort: sortMap[filters.sortBy],
     }
 
@@ -357,13 +331,24 @@ export const DiscoverPage: React.FC<
         ] || 'good'
     }
 
-    apiService
-      .searchListings(params)
+    if (filters.maxPoints < 1500) {
+      params.max_points = filters.maxPoints
+    }
+
+    if (filters.maxDistanceKm < 10) {
+      params.radius_km = filters.maxDistanceKm
+    }
+
+    apiService.searchListings(params)
       .then((response) => {
         if (!isMounted) return
 
+        const listingItems = Array.isArray(response)
+          ? response
+          : response.items
+
         setRemoteProducts(
-          response.items.map(
+          listingItems.map(
             (
               item: ApiDiscoveryListing
             ) =>
@@ -390,8 +375,31 @@ export const DiscoverPage: React.FC<
     brandItems,
   ])
 
-  const activeProducts =
-    remoteProducts ?? products
+  const activeProducts = useMemo(() => {
+    if (!remoteProducts) return products
+
+    const byBackendId = new Map(
+      remoteProducts
+        .filter((product) => product.backendListingId)
+        .map((product) => [product.backendListingId, product])
+    )
+
+    products.forEach((product) => {
+      if (product.backendListingId) {
+        const remoteProduct = byBackendId.get(product.backendListingId)
+        byBackendId.set(product.backendListingId, remoteProduct
+          ? {
+              ...product,
+              ...remoteProduct,
+              points: remoteProduct.points || product.points,
+              images: remoteProduct.images.length > 0 ? remoteProduct.images : product.images,
+            }
+          : product)
+      }
+    })
+
+    return Array.from(byBackendId.values())
+  }, [remoteProducts, products])
 
   const filteredProducts =
     useMemo(() => {
@@ -437,8 +445,8 @@ export const DiscoverPage: React.FC<
             filters.maxPoints
 
           const matchesDistance =
-            p.distanceKm <=
-            filters.maxDistanceKm
+            p.distanceKm === 999 ||
+            p.distanceKm <= filters.maxDistanceKm
 
           return (
             matchesQuery &&

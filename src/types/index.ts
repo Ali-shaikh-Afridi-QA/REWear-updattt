@@ -10,6 +10,7 @@ export type View =
   | 'favorites'
   | 'messages'
   | 'help'
+  | 'admin'
   | 'login'
 
 export type AuthMode = 'login' | 'register'

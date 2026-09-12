@@ -41,7 +41,7 @@ export const DisputeModal: React.FC<DisputeModalProps> = ({
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
             <h3 style={{ fontSize: '20px', fontWeight: 800 }}>Dispute / Report Filed</h3>
             <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '6px', marginBottom: '20px' }}>
-              Our Trust & Safety team has locked escrow points and opened Case #DSP-88192. We will contact both parties within 4 hours.
+              Our Trust & Safety team will review your report and follow up through your ReWear account.
             </p>
             <button className="btn-primary" onClick={onClose}>Close Window</button>
           </div>

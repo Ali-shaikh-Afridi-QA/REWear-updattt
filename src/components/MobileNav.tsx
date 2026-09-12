@@ -1,12 +1,13 @@
 import React from 'react'
-import { View } from '../types'
+import { User, View } from '../types'
 
 interface MobileNavProps {
   currentView: View
   setView: (view: View) => void
+  user: User
 }
 
-export const MobileNav: React.FC<MobileNavProps> = ({ currentView, setView }) => {
+export const MobileNav: React.FC<MobileNavProps> = ({ currentView, setView, user }) => {
   return (
     <div className="mobile-bottom-nav">
       <button
@@ -45,6 +46,15 @@ export const MobileNav: React.FC<MobileNavProps> = ({ currentView, setView }) =>
       >
         <span>Wallet</span>
       </button>
+
+      {user.role === 'admin' && (
+        <button
+          className={`mobile-nav-item ${currentView === 'admin' ? 'active' : ''}`}
+          onClick={() => setView('admin')}
+        >
+          <span>Admin</span>
+        </button>
+      )}
     </div>
   )
 }

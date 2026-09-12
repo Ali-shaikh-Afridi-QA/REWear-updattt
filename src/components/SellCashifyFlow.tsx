@@ -8,8 +8,6 @@ interface SellCashifyFlowProps {
   onCancel: () => void
 }
 
-const CATEGORIES = ['Jackets', 'T-Shirts', 'Shirts', 'Dresses', 'Jeans', 'Shoes', 'Hoodies', 'Ethnic']
-const BRANDS = ["Levi's", 'Zara', 'Nike', 'H&M', 'Adidas', 'Uniqlo', 'Mango', 'Puma', 'Other / Local']
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'UK 6', 'UK 7', 'UK 8']
 const AGES = ['< 6 months', '6–12 months', '1–2 years', '2+ years']
 const CONDITIONS = [
@@ -30,11 +28,13 @@ const DEFECT_OPTIONS = [
   'No defects whatsoever',
 ]
 
-const SAMPLE_PHOTOS = [
-  'https://images.unsplash.com/photo-1576871337622-98d48d1cf531?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1544441893-675973e31985?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=600&q=80',
-]
+const CATEGORY_MAP: Record<string, string> = {
+  Jackets: 'outerwear', 'T-Shirts': 'tops', Shirts: 'tops', Dresses: 'dresses', Jeans: 'bottoms', Shoes: 'shoes', Hoodies: 'tops', Ethnic: 'other',
+}
+
+const BRAND_MAP: Record<string, string> = {
+  "Levi's": 'premium', Nike: 'premium', Adidas: 'premium', Zara: 'standard', 'H&M': 'standard', Uniqlo: 'standard', Mango: 'standard', Puma: 'standard',
+}
 
 export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
   user,
@@ -44,22 +44,25 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
   const [step, setStep] = useState<number>(1)
   const [isPublished, setIsPublished] = useState(false)
   const [error, setError] = useState('')
-  const [categories, setCategories] = useState(CATEGORIES)
-  const [brands, setBrands] = useState(BRANDS)
+  const [photoWarning, setPhotoWarning] = useState('')
+  const [categories, setCategories] = useState<string[]>([])
+  const [brands, setBrands] = useState<string[]>([])
   const [categoryItems, setCategoryItems] = useState<CatalogItem[]>([])
   const [brandItems, setBrandItems] = useState<CatalogItem[]>([])
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const [isPublishing, setIsPublishing] = useState(false)
+  const [draftListingId, setDraftListingId] = useState<string>()
+  const [isValuating, setIsValuating] = useState(false)
   const [formData, setFormData] = useState<ValuationQuestionnaire>({
     mode: 'sell',
-    category: 'Jackets',
-    brand: "Levi's",
+    category: '',
+    brand: '',
     size: 'M',
     age: '6–12 months',
     overallCondition: 'Like New',
     defects: [],
-    photos: [SAMPLE_PHOTOS[0], SAMPLE_PHOTOS[1]],
-    estimatedPoints: 750,
+    photos: [],
+    estimatedPoints: 0,
   })
 
   useEffect(() => {
@@ -70,11 +73,20 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
         if (!isMounted) return
         setCategoryItems(categoryItems)
         setBrandItems(brandItems)
-        if (categoryItems.length > 0) setCategories(categoryItems.map((item) => item.name))
-        if (brandItems.length > 0) setBrands(brandItems.map((item) => item.name))
+        if (categoryItems.length > 0) {
+          setCategories(categoryItems.map((item) => item.name))
+          setFormData((previous) => ({ ...previous, category: previous.category || categoryItems[0].name }))
+        }
+        if (brandItems.length > 0) {
+          setBrands(brandItems.map((item) => item.name))
+          setFormData((previous) => ({ ...previous, brand: previous.brand || brandItems[0].name }))
+        }
+        if (categoryItems.length === 0 || brandItems.length === 0) {
+          setError('The backend catalog is currently empty. Categories and brands must be seeded before creating a listing.')
+        }
       })
       .catch(() => {
-        // Keep local questionnaire options available if catalog loading fails.
+        setError('Unable to load categories and brands from the backend.')
       })
 
     return () => {
@@ -82,31 +94,73 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
     }
   }, [])
 
-  const calculatePoints = () => {
-    let base = 500
-    if (formData.brand === "Levi's" || formData.brand === 'Nike' || formData.brand === 'Adidas') base = 700
-    if (formData.category === 'Jackets' || formData.category === 'Shoes') base += 200
-    if (formData.category === 'Dresses') base += 100
-
-    const cond = CONDITIONS.find((c) => c.label === formData.overallCondition)
-    const mult = cond ? cond.multiplier : 1.0
-
-    let defectPenalty = formData.defects.length * 40
-    if (formData.defects.includes('No defects whatsoever')) defectPenalty = 0
-
-    const finalPts = Math.max(200, Math.round(base * mult - defectPenalty))
-    return finalPts
-  }
-
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 8 && formData.photos.length < 2) {
       setError('Please upload at least 2 photos to continue.')
       return
     }
 
     if (step === 9) {
-      const pts = calculatePoints()
-      setFormData((prev) => ({ ...prev, estimatedPoints: pts }))
+      setError('')
+      setIsValuating(true)
+
+      const categoryId = categoryItems.find((item) => item.name === formData.category)?.id
+      if (!categoryId) {
+        setError('Please select a valid catalog category.')
+        setIsValuating(false)
+        return
+      }
+
+      const condition = formData.overallCondition === 'Like New' || formData.overallCondition === 'Brand New with Tags'
+        ? 'like_new'
+        : formData.overallCondition === 'Good' || formData.overallCondition === 'Excellent'
+          ? 'good'
+          : 'fair'
+      const ageMatch = formData.age.match(/\d+/)
+
+      try {
+        const listing = draftListingId
+          ? { id: draftListingId }
+          : await apiService.createListing({
+              title: `${formData.brand} ${formData.category} (${formData.overallCondition})`,
+              description: `Listing created through the ReWear valuation flow. Age: ${formData.age}. Condition: ${formData.overallCondition}.`,
+              category_id: categoryId,
+              brand_id: brandItems.find((item) => item.name === formData.brand)?.id || null,
+              size: ['XS', 'S', 'M', 'L', 'XL', 'XXL'].includes(formData.size) ? formData.size : 'other',
+              condition,
+              age: ageMatch ? Number(ageMatch[0]) : null,
+              defects: formData.defects.filter((defect) => defect !== 'No defects whatsoever').join(', ') || null,
+              location: user.location.trim() || 'India',
+            })
+
+        setDraftListingId(listing.id)
+
+        try {
+          const valuation = await apiService.valueListing(listing.id, {
+            category: CATEGORY_MAP[formData.category] || 'other',
+            brand: BRAND_MAP[formData.brand] || 'none',
+            age: ageMatch ? Number(ageMatch[0]) : 0,
+            condition,
+            stains: formData.defects.some((defect) => defect.toLowerCase().includes('stain')),
+            tears: formData.defects.some((defect) => defect.toLowerCase().includes('tear')),
+            fading: formData.defects.some((defect) => defect.toLowerCase().includes('fading')),
+            zip_condition: !formData.defects.some((defect) => defect.toLowerCase().includes('zipper')),
+            buttons: !formData.defects.some((defect) => defect.toLowerCase().includes('button')),
+            stitching: !formData.defects.some((defect) => defect.toLowerCase().includes('stitch')),
+            other_defects: formData.defects.length > 0,
+          })
+          setFormData((previous) => ({ ...previous, estimatedPoints: valuation.points }))
+        } catch (valuationError) {
+          setFormData((previous) => ({ ...previous, estimatedPoints: 0 }))
+          setError(valuationError instanceof Error ? `Valuation unavailable: ${valuationError.message}` : 'Valuation unavailable.')
+        }
+      } catch (createError) {
+        setError(createError instanceof Error ? createError.message : 'Unable to create listing draft.')
+        setIsValuating(false)
+        return
+      }
+
+      setIsValuating(false)
     }
 
     setError('')
@@ -135,18 +189,27 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
 
   const handlePublish = async () => {
     setError('')
+    setPhotoWarning('')
     setIsPublishing(true)
+    let publishStage = 'creating listing'
     let finalPoints = formData.estimatedPoints
-    let backendListingId: string | undefined
+    let backendListingId = draftListingId
 
     const categoryId = categoryItems.find((item) => item.name === formData.category)?.id
     const brandId = brandItems.find((item) => item.name === formData.brand)?.id || null
 
-    if (categoryId) {
-      try {
+    if (!categoryId) {
+      setError('Please select a valid catalog category before publishing.')
+      setIsPublishing(false)
+      return
+    }
+
+    try {
         const condition = formData.overallCondition === 'Like New' || formData.overallCondition === 'Brand New with Tags' ? 'like_new' : formData.overallCondition === 'Good' || formData.overallCondition === 'Excellent' ? 'good' : 'fair'
         const ageMatch = formData.age.match(/\d+/)
-        const createdListing = await apiService.createListing({
+        const createdListing = backendListingId
+          ? { id: backendListingId }
+          : await apiService.createListing({
           title: `${formData.brand} ${formData.category} (${formData.overallCondition})`,
           description: `Verified listing through Cashify valuation flow. Age: ${formData.age}. Condition: ${formData.overallCondition}.`,
           category_id: categoryId,
@@ -155,42 +218,52 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
           condition,
           age: ageMatch ? Number(ageMatch[0]) : null,
           defects: formData.defects.filter((defect) => defect !== 'No defects whatsoever').join(', ') || null,
-          location: user.location,
-        })
+          location: user.location.trim() || 'India',
+          })
         backendListingId = createdListing.id
+        finalPoints = formData.estimatedPoints
 
-        const categoryMap: Record<string, string> = {
-          Jackets: 'outerwear', 'T-Shirts': 'tops', Shirts: 'tops', Dresses: 'dresses', Jeans: 'bottoms', Shoes: 'shoes', Hoodies: 'tops', Ethnic: 'other',
-        }
-        const brandMap: Record<string, string> = {
-          "Levi's": 'premium', Nike: 'premium', Adidas: 'premium', Zara: 'standard', 'H&M': 'standard', Uniqlo: 'standard', Mango: 'standard', Puma: 'standard',
-        }
-        const valuation = await apiService.valueListing(createdListing.id, {
-          category: categoryMap[formData.category] || 'other',
-          brand: brandMap[formData.brand] || 'none',
-          age: ageMatch ? Number(ageMatch[0]) : 0,
-          condition: condition === 'like_new' ? 'like_new' : condition === 'good' ? 'good' : 'fair',
-          stains: formData.defects.some((defect) => defect.toLowerCase().includes('stain')),
-          tears: formData.defects.some((defect) => defect.toLowerCase().includes('tear')),
-          fading: formData.defects.some((defect) => defect.toLowerCase().includes('fading')),
-          zip_condition: !formData.defects.some((defect) => defect.toLowerCase().includes('zipper')),
-          buttons: !formData.defects.some((defect) => defect.toLowerCase().includes('button')),
-          stitching: !formData.defects.some((defect) => defect.toLowerCase().includes('stitch')),
-          other_defects: formData.defects.length > 0,
-        })
-        finalPoints = valuation.points
+        publishStage = 'calculating valuation'
+          try {
+            const valuation = await apiService.valueListing(createdListing.id, {
+              category: CATEGORY_MAP[formData.category] || 'other',
+              brand: BRAND_MAP[formData.brand] || 'none',
+              age: ageMatch ? Number(ageMatch[0]) : 0,
+              condition,
+              stains: formData.defects.some((defect) => defect.toLowerCase().includes('stain')),
+              tears: formData.defects.some((defect) => defect.toLowerCase().includes('tear')),
+              fading: formData.defects.some((defect) => defect.toLowerCase().includes('fading')),
+              zip_condition: !formData.defects.some((defect) => defect.toLowerCase().includes('zipper')),
+              buttons: !formData.defects.some((defect) => defect.toLowerCase().includes('button')),
+              stitching: !formData.defects.some((defect) => defect.toLowerCase().includes('stitch')),
+              other_defects: formData.defects.length > 0,
+            })
+            finalPoints = valuation.points
+          } catch {
+            finalPoints = formData.estimatedPoints
+          }
 
-        await Promise.all(photoFiles.map((file) => {
-          const upload = new FormData()
-          upload.append('photo', file)
-          return apiService.uploadPhoto(createdListing.id, upload)
-        }))
+          publishStage = 'uploading photos'
+          try {
+            await Promise.all(photoFiles.map((file) => {
+              const upload = new FormData()
+              upload.append('photo', file)
+              return apiService.uploadPhoto(createdListing.id, upload)
+            }))
+          } catch (photoError) {
+            setPhotoWarning(photoError instanceof Error ? photoError.message : 'Photo upload failed.')
+          }
+        publishStage = 'publishing listing'
         await apiService.publishListing(createdListing.id)
       } catch (publishError) {
-        setError(publishError instanceof Error ? `${publishError.message} Showing a local preview instead.` : 'Backend listing setup failed. Showing a local preview instead.')
-        backendListingId = undefined
+        setError(
+          publishError instanceof Error
+            ? `${publishStage}: ${publishError.message}`
+            : `${publishStage}: Backend listing setup failed. Please try again.`
+        )
+        setIsPublishing(false)
+        return
       }
-    }
 
     const newProduct: Product = {
       id: Date.now(),
@@ -210,7 +283,7 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
         name: user.name,
         avatar: user.avatar || '',
         rating: user.rating,
-        location: user.location,
+        location: user.location.trim() || 'India',
         exchangesCount: user.successfulExchanges,
         joinedDate: '2024',
       },
@@ -236,6 +309,12 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
           <p style={{ color: 'var(--muted)', fontSize: '14px', margin: '10px auto 18px', maxWidth: '500px' }}>
             <strong>{formData.brand} {formData.category}</strong> is now visible to nearby buyers and is priced at <strong>{formData.estimatedPoints} ReWear Points</strong>.
           </p>
+
+          {photoWarning && (
+            <div style={{ background: '#FFF8E6', border: '1px solid #F0D48A', color: '#7A5A00', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', fontWeight: 700, marginBottom: '16px' }}>
+              Listing published, but photo upload failed: {photoWarning}
+            </div>
+          )}
 
           <div style={{ background: 'var(--lime-soft)', borderRadius: '14px', padding: '18px', marginBottom: '24px', textAlign: 'left' }}>
             <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 800, marginBottom: '10px' }}>Listing Summary</div>
@@ -342,6 +421,8 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
             Which category best describes your clothing item?
           </p>
 
+          {!categories.length && <div style={{ color: 'var(--rose)', fontSize: '13px', fontWeight: 700, marginBottom: '16px' }}>{error || 'No categories are available from the backend.'}</div>}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
             {categories.map((cat) => (
               <button
@@ -372,6 +453,8 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
           <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '24px' }}>
             Known brand garments carry higher points valuation due to standardized sizing.
           </p>
+
+          {!brands.length && <div style={{ color: 'var(--rose)', fontSize: '13px', fontWeight: 700, marginBottom: '16px' }}>{error || 'No brands are available from the backend.'}</div>}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
             {brands.map((b) => (
@@ -614,6 +697,12 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
             Confirm your responses before calculating final valuation.
           </p>
 
+          {error && (
+            <div style={{ background: '#FDF0F0', border: '1px solid #F5C6C6', color: 'var(--rose)', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', fontWeight: 700, marginBottom: '16px' }}>
+              {error}
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', fontSize: '13px', background: 'var(--bg-cream)', padding: '16px', borderRadius: '10px', marginBottom: '20px' }}>
             <div><span style={{ color: 'var(--muted)' }}>Category:</span> <strong>{formData.category}</strong></div>
             <div><span style={{ color: 'var(--muted)' }}>Brand:</span> <strong>{formData.brand}</strong></div>
@@ -649,8 +738,8 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
             <button className="btn-secondary" onClick={() => setStep(8)}>
               Retake Photos
             </button>
-            <button className="btn-primary" onClick={handleNext}>
-              Confirm & Continue to List
+            <button className="btn-primary" disabled={isValuating} onClick={handleNext}>
+              {isValuating ? 'Calculating...' : 'Confirm & Continue to List'}
             </button>
           </div>
         </div>
@@ -663,6 +752,12 @@ export const SellCashifyFlow: React.FC<SellCashifyFlowProps> = ({
           <p style={{ color: 'var(--muted)', fontSize: '14px', maxWidth: '480px', margin: '0 auto 28px' }}>
             Your item will be immediately discoverable to buyers in <strong>{user.location}</strong> for <strong>{formData.estimatedPoints} ReWear Points</strong>.
           </p>
+
+          {error && (
+            <div style={{ background: '#FDF0F0', border: '1px solid #F5C6C6', color: 'var(--rose)', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', fontWeight: 700, margin: '0 auto 16px', maxWidth: '520px' }}>
+              {error}
+            </div>
+          )}
 
           <button className="btn-primary" disabled={isPublishing} style={{ padding: '14px 32px', fontSize: '15px', opacity: isPublishing ? 0.7 : 1 }} onClick={handlePublish}>
             {isPublishing ? 'Publishing...' : 'Publish Listing Now'}

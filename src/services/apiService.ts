@@ -4,6 +4,11 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.DEV ? '/api' : 'https://rewear-final-p.onrender.com')
 
+export function toApiMediaUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path
+  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 const ACCESS_TOKEN_KEY = 'rewear.accessToken'
 const REFRESH_TOKEN_KEY = 'rewear.refreshToken'
 
@@ -173,13 +178,41 @@ function getAccessToken() {
   )
 }
 
+let refreshPromise: Promise<boolean> | null = null
+
+async function refreshAccessToken(): Promise<boolean> {
+  const refreshToken = getStoredValue(REFRESH_TOKEN_KEY)
+  if (!refreshToken) return false
+
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+      .then(async (response) => {
+        if (!response.ok) return false
+        const tokens = (await response.json()) as TokenResponse
+        saveAuthTokens(tokens)
+        return true
+      })
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+
+  return refreshPromise
+}
+
 /* =========================
    Generic API Request
 ========================= */
 
 async function request<T = any>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  canRefresh = true
 ): Promise<T> {
   const url = `${API_BASE_URL}${
     endpoint.startsWith('/')
@@ -207,15 +240,32 @@ async function request<T = any>(
       headers,
     })
 
+    if (res.status === 401 && canRefresh && await refreshAccessToken()) {
+      return request<T>(endpoint, options, false)
+    }
+
     if (!res.ok) {
       const errData = await res
         .json()
         .catch(() => ({}))
 
+      const detail = Array.isArray(errData.detail)
+        ? errData.detail
+            .map((item: unknown) => {
+              if (item && typeof item === 'object') {
+                const validation = item as Record<string, unknown>
+                const location = Array.isArray(validation.loc)
+                  ? validation.loc.join('.')
+                  : ''
+                return `${location ? `${location}: ` : ''}${validation.msg || 'Invalid value'}`
+              }
+              return String(item)
+            })
+            .join('; ')
+        : errData.detail || errData.message
+
       throw new Error(
-        errData.detail ||
-          errData.message ||
-          `Request failed with status ${res.status}`
+        detail || `Request failed with status ${res.status}`
       )
     }
 
@@ -463,7 +513,12 @@ export const apiService = {
   // =========================
 
   getWallet: () =>
-    request('/wallet'),
+    request<{
+      wallet_id: string
+      available_balance: number
+      locked_balance: number
+      total_balance: number
+    }>('/wallet'),
 
   getWalletTransactions: (
     params?: any
@@ -538,7 +593,7 @@ export const apiService = {
   getListings: (
     params?: any
   ) =>
-    request<ApiDiscoveryResponse>(
+    request<ApiDiscoveryListing[] | ApiDiscoveryResponse>(
       `/listings${
         params
           ? '?' +
@@ -636,10 +691,23 @@ export const apiService = {
           .json()
           .catch(() => ({}))
 
+      const detail = Array.isArray(errData.detail)
+        ? errData.detail
+            .map((item: unknown) => {
+              if (item && typeof item === 'object') {
+                const validation = item as Record<string, unknown>
+                const location = Array.isArray(validation.loc)
+                  ? validation.loc.join('.')
+                  : ''
+                return `${location ? `${location}: ` : ''}${validation.msg || 'Invalid value'}`
+              }
+              return String(item)
+            })
+            .join('; ')
+        : errData.detail || errData.message
+
       throw new Error(
-        errData.detail ||
-          errData.message ||
-          `Request failed with status ${res.status}`
+        detail || `Request failed with status ${res.status}`
       )
     }
 
@@ -649,7 +717,13 @@ export const apiService = {
   getPhotos: (
     id: string
   ) =>
-    request(
+    request<Array<{
+      id: string
+      photo_url: string
+      content_type: string
+      file_size: number
+      sort_order: number
+    }>>(
       `/listings/${id}/photos`
     ),
 
@@ -885,7 +959,7 @@ export const apiService = {
     request(
       `/disputes/${disputeId}/resolve`,
       {
-        method: 'PATCH',
+        method: 'POST',
         body: JSON.stringify(data),
       }
     ),

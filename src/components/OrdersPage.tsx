@@ -16,12 +16,18 @@ interface OrdersPageProps {
 
   onOpenDispute: (order: Order) => void
 
+  onRefreshOrder?: (order: Order) => Promise<void> | void
+
   onConfirmMeetup?: (
     order: Order,
     location: string
   ) => void | Promise<void>
 
   onHandoverMeetup?: (
+    order: Order
+  ) => void | Promise<void>
+
+  onCancelMeetup?: (
     order: Order
   ) => void | Promise<void>
 
@@ -78,8 +84,10 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   onUpdateStage,
   onCancelOrder,
   onOpenDispute,
+  onRefreshOrder,
   onConfirmMeetup,
   onHandoverMeetup,
+  onCancelMeetup,
   onConfirmDelivery,
   onSubmitReview,
 }) => {
@@ -266,6 +274,19 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     >
                       {ord.product.title}
                     </h3>
+
+                    {onRefreshOrder && (
+                      <button
+                        className="btn-secondary"
+                        onClick={() => onRefreshOrder(ord)}
+                        style={{
+                          padding: '5px 8px',
+                          fontSize: '11px',
+                        }}
+                      >
+                        Refresh details
+                      </button>
+                    )}
 
                     <div
                       style={{
@@ -512,6 +533,9 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 }
                 onHandoverMeetup={
                   onHandoverMeetup
+                }
+                onCancelMeetup={
+                  onCancelMeetup
                 }
                 onConfirmDelivery={
                   onConfirmDelivery

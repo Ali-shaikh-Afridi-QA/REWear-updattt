@@ -13,6 +13,7 @@ type Section =
   | 'listings'
   | 'disputes'
   | 'reports'
+  | 'donations'
   | 'catalog'
   | 'audit'
 
@@ -58,6 +59,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
       if (target === 'reports') {
         setData(await apiService.getAdminReports({ limit: 100 }))
+      }
+
+      if (target === 'donations') {
+        setData(await apiService.getDonations({ limit: 100 }))
       }
 
       if (target === 'audit') {
@@ -142,6 +147,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const action = async (fn: () => Promise<unknown>) => {
     try {
       await fn()
+      setCatalogName('')
       await load(section)
     } catch (requestError) {
       setError(
@@ -164,6 +170,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     'listings',
     'disputes',
     'reports',
+    'donations',
     'catalog',
     'audit',
   ]
@@ -412,22 +419,62 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           <Rows
             rows={data}
             actions={(row) => (
-              <button
-                className="btn-secondary"
-                onClick={() =>
-                  action(() =>
-                    catalogKind === 'category'
-                      ? apiService.deleteAdminCategory(
-                          row.id
-                        )
-                      : apiService.deleteAdminBrand(
-                          row.id
-                        )
-                  )
-                }
-              >
-                Delete
-              </button>
+              <>
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    const name = window.prompt('Enter the new name:', row.name)
+                    if (!name?.trim()) return
+                    const nextSlug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+                    void action(() => row.kind === 'Category'
+                      ? apiService.updateAdminCategory(row.id, { name: name.trim(), slug: nextSlug })
+                      : apiService.updateAdminBrand(row.id, { name: name.trim(), slug: nextSlug }))
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  className="btn-secondary"
+                  style={{ color: 'var(--rose)' }}
+                  onClick={() => {
+                    if (!window.confirm(`Delete ${row.kind.toLowerCase()} "${row.name}"?`)) return
+                    void action(() => row.kind === 'Category'
+                      ? apiService.deleteAdminCategory(row.id)
+                      : apiService.deleteAdminBrand(row.id))
+                  }}
+                >
+                  Delete
+                </button>
+              </>
+            )}
+          />
+        </div>
+      )}
+
+      {/* Donations */}
+      {section === 'donations' && (
+        <div className="card-clean" style={{ padding: 20 }}>
+          <Rows
+            rows={data}
+            actions={(row) => (
+              <>
+                {row.status === 'submitted' && (
+                  <button
+                    className="btn-secondary"
+                    onClick={() => void action(() => apiService.approveDonation(row.id))}
+                  >
+                    Approve
+                  </button>
+                )}
+                {row.status === 'approved' && (
+                  <button
+                    className="btn-primary"
+                    onClick={() => void action(() => apiService.completeDonation(row.id))}
+                  >
+                    Complete
+                  </button>
+                )}
+              </>
             )}
           />
         </div>
@@ -435,7 +482,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
       {/* Other sections */}
       {section !== 'dashboard' &&
-        section !== 'catalog' && (
+        section !== 'catalog' &&
+        section !== 'donations' && (
           <div
             className="card-clean"
             style={{ padding: 20 }}

@@ -82,6 +82,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             Help
           </button>
+          {user.role === 'admin' && (
+            <button
+              className={`nav-btn ${currentView === 'admin' ? 'active' : ''}`}
+              onClick={() => handleNavClick('admin')}
+            >
+              Admin
+            </button>
+          )}
         </nav>
 
         {/* Right Action Items & Profile */}
